@@ -5,7 +5,6 @@
 
 PRAGMA foreign_keys = ON;
 
-BEGIN TRANSACTION;
 
 -- ============================================================
 -- 1. Classes
@@ -780,4 +779,3 @@ INSERT INTO financial_transaction_categories (
     NULL
 );
 
-COMMIT;
