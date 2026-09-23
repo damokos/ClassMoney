@@ -7,10 +7,12 @@ import { updateClassHandler } from "./api/classes/update";
 import { healthHandler } from "./api/health";
 import { NotFoundError } from "./http/errors";
 import { errorResponse } from "./http/response";
+import { getAuthContext } from "./auth/context";
 
 export async function router(
   request: Request,
   env: Env,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const url = new URL(request.url);
 
@@ -19,8 +21,10 @@ export async function router(
       return await healthHandler(env);
     }
 
+    const authContext = await getAuthContext(env, ctx);
+
     if (url.pathname === "/api/classes" && request.method === "GET") {
-      return await listClassesHandler(request, env);
+      return await listClassesHandler(request, env, authContext);
     }
 
     if (url.pathname === "/api/classes" && request.method === "POST") {

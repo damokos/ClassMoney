@@ -70,6 +70,41 @@ export async function listClasses(
   return result.results.map(mapClass);
 }
 
+export async function listClassesForUser(
+  db: D1Database,
+  userId: number,
+): Promise<Class[]> {
+  const result = await db
+    .prepare(`
+      SELECT DISTINCT
+        classes.id,
+        classes.code,
+        classes.display_name,
+        classes.currency,
+        classes.currency_decimals,
+        classes.balance,
+        classes.timezone,
+        classes.active,
+        classes.archived_at,
+        classes.created_at,
+        classes.updated_at
+      FROM classes
+      INNER JOIN user_roles
+        ON user_roles.class_id = classes.id
+      WHERE user_roles.user_id = ?
+        AND user_roles.role IN (
+          'PARENT_REPRESENTATIVE',
+          'TREASURER'
+        )
+        AND classes.active = 1
+      ORDER BY classes.display_name COLLATE NOCASE, classes.id
+    `)
+    .bind(userId)
+    .all<ClassRow>();
+
+  return result.results.map(mapClass);
+}
+
 export async function getClassById(
   db: D1Database,
   id: number,
