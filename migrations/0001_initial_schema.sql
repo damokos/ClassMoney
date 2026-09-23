@@ -1,4 +1,4 @@
--- ClassMoney 2.0
+-- ClassMoney
 -- Initial D1 / SQLite schema
 -- Generated from the finalized logical data model.
 -- Migration: 0001_initial_schema.sql
