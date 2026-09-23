@@ -1,5 +1,8 @@
+import type { Env } from "./types/env";
+import { router } from "./router";
+
 export default {
-  async fetch(): Promise<Response> {
-    return new Response("ClassMoney");
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return router(request, env);
   },
 };
