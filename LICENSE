@@ -1,0 +1,51 @@
+ClassMoney 2.0 Non-Commercial License
+
+Copyright (c) 2026 Kristóf Damokos
+
+Permission is granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"),
+to use, copy, modify, and distribute the Software, subject to the
+following conditions:
+
+1. NON-COMMERCIAL USE
+
+The Software may be used, copied, modified, and deployed free of charge
+for personal, educational, school, class, community, and other
+non-commercial purposes.
+
+2. COMMERCIAL USE
+
+Commercial use of the Software is not permitted under this license.
+
+Commercial use includes, but is not limited to:
+
+- selling the Software or a derivative work;
+- offering the Software as a paid service or SaaS;
+- using the Software to provide paid services to third parties;
+- incorporating the Software into a commercial product or service;
+- redistributing the Software as part of a commercial offering.
+
+Commercial use requires a separate commercial license from the copyright
+holder.
+
+For commercial licensing inquiries, please contact the copyright holder
+through the contact information provided in the project repository.
+
+3. MODIFICATIONS AND DISTRIBUTION
+
+Non-commercial users may modify and redistribute the Software, provided
+that this license and the original copyright notice are retained.
+
+Modified versions must clearly indicate that they have been modified.
+
+4. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
+OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

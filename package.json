@@ -1,0 +1,8 @@
+{
+  "name": "classmoney-2.0",
+  "private": true,
+  "version": "2.0.0",
+  "description": "ClassMoney 2.0 - multi-class administration and class finance platform",
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "devDependencies": { "wrangler": "latest" }
+}
