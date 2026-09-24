@@ -85,6 +85,119 @@ Additional Cloudflare services may be introduced where they provide a clear bene
 
 Detailed architecture documentation will be maintained in the `docs/` directory.
 
+## Administrative module
+
+The administrative module provides the foundation for managing users, classes, and role assignments in a ClassMoney instance. Authentication is handled by Cloudflare Access; ClassMoney does not implement a separate password, session, or login system.
+
+### Authentication
+
+When an authenticated user accesses ClassMoney through Cloudflare Access, the application identifies the user by their email address.
+
+If the user does not yet exist in the ClassMoney database, a user record is created automatically with:
+
+- `active = true`
+- no roles
+- no child associations
+
+Access authentication therefore establishes the user's identity, while ClassMoney controls what that authenticated user is allowed to do.
+
+### Roles
+
+ClassMoney currently defines three roles:
+
+- `ADMIN` — global administrative role
+- `PARENT_REPRESENTATIVE` — class-scoped role
+- `TREASURER` — class-scoped role
+
+An `ADMIN` role is global and is not attached to a specific class. Parent Representative and Treasurer roles are always assigned to a specific class.
+
+A user may have multiple class-scoped roles and may have different roles in different classes.
+
+Being an `ADMIN` does not automatically grant financial permissions for every class. An administrator can manage classes and users globally, but must also have an appropriate class-scoped role to operate on a class's finances.
+
+### Class administration
+
+Administrators can:
+
+- view all classes
+- create classes
+- modify class configuration
+- archive classes
+- view archived classes
+
+Users with a class-scoped role can access the classes for which they have a relevant role.
+
+Class administration is intentionally separated from class financial operations.
+
+### User administration
+
+Administrators can:
+
+- list users
+- view individual users
+- activate users
+- deactivate users
+- assign roles
+- remove roles
+
+Deactivating a user also removes their role assignments.
+
+The system protects the integrity of class administration by preventing the deactivation of the last Parent Representative or last Treasurer assigned to a class.
+
+Reactivating a user does not automatically restore previously removed roles. Roles must be assigned again by an administrator.
+
+### Children
+
+Children belong to a specific class and are managed separately from user accounts and roles.
+
+Administrators, Parent Representatives, and Treasurers can manage children within the classes they are authorized to access.
+
+Child records are not physically deleted. Instead, a child can be marked inactive so that historical financial data can remain associated with the child.
+
+The association between a user and their children is maintained separately from role assignments.
+
+### Authorization model
+
+Authorization is enforced at the API level.
+
+The general model is:
+
+| Operation | ADMIN | PARENT_REPRESENTATIVE | TREASURER |
+| --- | --- | --- | --- |
+| View all classes | Yes | No | No |
+| View authorized class | Yes | Yes | Yes |
+| Create class | Yes | No | No |
+| Modify class | Yes | No | No |
+| Archive class | Yes | No | No |
+| Manage children | Yes | Yes | Yes |
+| Create charge | Only with class-scoped role | Yes | Yes |
+| Mark charge as paid | No | No | Yes |
+| Cancel charge | Only with class-scoped role | Yes | Yes |
+| Create expense | Only with class-scoped role | Yes | Yes |
+| Mark expense as paid | No | No | Yes |
+| Financial adjustment | No | No | Yes |
+| Manage users and roles | Yes | No | No |
+| Global audit access | Yes | No | No |
+| Class-scoped audit access | Yes | Yes | Yes |
+
+The `ADMIN` column in financial operations therefore does not mean that the global administrator automatically has financial access. For operations marked "Only with class-scoped role", the administrator must also hold the required Parent Representative or Treasurer role for that class.
+
+Payment operations are restricted to Treasurers.
+
+### API surface
+
+The current administrative API includes endpoints for:
+
+- classes
+- children
+- users
+- user role assignments
+- health/status checking
+
+The API uses structured JSON responses and application-level HTTP errors for authentication, authorization, validation, not-found, and conflict conditions.
+
+The administrative module is implemented as the backend foundation for the future user interface. The public API surface and endpoint documentation may evolve before the first production release.
+
 ## Development status
 
 ClassMoney is currently under active development.
