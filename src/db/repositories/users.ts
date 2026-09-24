@@ -87,9 +87,27 @@ export async function getOrCreateUserByEmail(
   email: string,
 ): Promise<User> {
   const normalizedEmail = email.trim().toLowerCase();
+
+  const existingUser = await getUserByEmail(
+    db,
+    normalizedEmail,
+  );
+
+  if (existingUser) {
+    return existingUser;
+  }
+
+  const userCount = await db
+    .prepare(`
+      SELECT COUNT(*) AS count
+      FROM users
+    `)
+    .first<{ count: number }>();
+
+  const isFirstUser = (userCount?.count ?? 0) === 0;
   const now = new Date().toISOString();
 
-  await db
+  const insertResult = await db
     .prepare(`
       INSERT INTO users (
         email,
@@ -99,14 +117,41 @@ export async function getOrCreateUserByEmail(
       )
       VALUES (?, 1, ?, ?)
       ON CONFLICT(email) DO NOTHING
+      RETURNING id
     `)
-    .bind(normalizedEmail, now, now)
-    .run();
+    .bind(
+      normalizedEmail,
+      now,
+      now,
+    )
+    .first<{ id: number }>();
 
-  const user = await getUserByEmail(db, normalizedEmail);
+  const user = await getUserByEmail(
+    db,
+    normalizedEmail,
+  );
 
   if (!user) {
     throw new Error("Failed to create or load user");
+  }
+
+  if (isFirstUser && insertResult) {
+    await db
+      .prepare(`
+        INSERT INTO user_roles (
+          user_id,
+          class_id,
+          role,
+          created_at,
+          created_by
+        )
+        VALUES (?, NULL, 'ADMIN', ?, NULL)
+      `)
+      .bind(
+        insertResult.id,
+        now,
+      )
+      .run();
   }
 
   return user;
