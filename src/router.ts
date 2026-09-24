@@ -5,7 +5,7 @@ import { getClassHandler } from "./api/classes/get";
 import { listClassesHandler } from "./api/classes/list";
 import { updateClassHandler } from "./api/classes/update";
 import { healthHandler } from "./api/health";
-import { NotFoundError } from "./http/errors";
+import { AppError, NotFoundError } from "./http/errors";
 import { errorResponse } from "./http/response";
 import { getAuthContext } from "./auth/context";
 
@@ -55,8 +55,12 @@ export async function router(
 
     throw new NotFoundError("API endpoint not found");
   } catch (error) {
-    if (error instanceof NotFoundError) {
-      return errorResponse(error.code, error.message, error.status);
+    if (error instanceof AppError) {
+      return errorResponse(
+        error.code,
+        error.message,
+        error.status,
+      );
     }
 
     console.error("Unhandled API error:", error);
