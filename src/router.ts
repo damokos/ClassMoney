@@ -28,21 +28,21 @@ export async function router(
     }
 
     if (url.pathname === "/api/classes" && request.method === "POST") {
-      return await createClassHandler(request, env);
+      return await createClassHandler(request, env, authContext);
     }
 
     if (
       url.pathname.startsWith("/api/classes/") &&
       request.method === "GET"
     ) {
-      return await getClassHandler(request, env);
+      return await getClassHandler(request, env, authContext);
     }
 
     if (
       url.pathname.startsWith("/api/classes/") &&
       request.method === "PATCH"
     ) {
-      return await updateClassHandler(request, env);
+      return await updateClassHandler(request, env, authContext);
     }
 
     if (
