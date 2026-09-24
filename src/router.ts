@@ -12,6 +12,13 @@ import { listChildrenHandler } from "./api/children/list";
 import { createChildHandler } from "./api/children/create";
 import { getChildHandler } from "./api/children/get";
 import { updateChildHandler } from "./api/children/update";
+import { listUsersHandler } from "./api/users/list";
+import { getUserHandler } from "./api/users/get";
+import { updateUserHandler } from "./api/users/update";
+import {
+  addUserRoleHandler,
+  removeUserRoleHandler,
+} from "./api/users/roles";
 
 export async function router(
   request: Request,
@@ -26,6 +33,46 @@ export async function router(
     }
 
     const authContext = await getAuthContext(env, ctx);
+
+    if (
+      url.pathname.match(/^\/api\/users\/\d+$/) &&
+      request.method === "PATCH"
+    ) {
+      return await updateUserHandler(request, env, authContext);
+    }
+
+    if (
+      url.pathname.match(/^\/api\/users\/\d+\/roles$/) &&
+      request.method === "DELETE"
+    ) {
+      return await removeUserRoleHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    if (
+      url.pathname.match(/^\/api\/users\/\d+\/roles$/) &&
+      request.method === "POST"
+    ) {
+      return await addUserRoleHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    if (
+      url.pathname.match(/^\/api\/users\/\d+$/) &&
+      request.method === "GET"
+    ) {
+      return await getUserHandler(request, env, authContext);
+    }
+
+    if (url.pathname === "/api/users" && request.method === "GET") {
+      return await listUsersHandler(request, env, authContext);
+    }
 
     if (url.pathname === "/api/classes" && request.method === "GET") {
       return await listClassesHandler(request, env, authContext);
