@@ -1,13 +1,22 @@
+import type { AuthContext } from "../../auth/types";
 import type { Env } from "../../types/env";
 import { getDb } from "../../db/client";
 import { createClass } from "../../db/repositories/classes";
+import {
+  requireAuthenticatedUser,
+  requireGlobalRole,
+} from "../../auth/authorization";
 import { BadRequestError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 
 export async function createClassHandler(
   request: Request,
   env: Env,
+  authContext: AuthContext | null,
 ): Promise<Response> {
+  requireAuthenticatedUser(authContext?.user ?? null);
+  requireGlobalRole(authContext.user, "ADMIN");
+
   let body: unknown;
 
   try {
