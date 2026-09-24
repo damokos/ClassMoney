@@ -50,7 +50,7 @@ export async function router(
       url.pathname.endsWith("/archive") &&
       request.method === "POST"
     ) {
-      return await archiveClassHandler(request, env);
+      return await archiveClassHandler(request, env, authContext);
     }
 
     throw new NotFoundError("API endpoint not found");
