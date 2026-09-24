@@ -8,6 +8,10 @@ import { healthHandler } from "./api/health";
 import { AppError, NotFoundError } from "./http/errors";
 import { errorResponse } from "./http/response";
 import { getAuthContext } from "./auth/context";
+import { listChildrenHandler } from "./api/children/list";
+import { createChildHandler } from "./api/children/create";
+import { getChildHandler } from "./api/children/get";
+import { updateChildHandler } from "./api/children/update";
 
 export async function router(
   request: Request,
@@ -32,6 +36,34 @@ export async function router(
     }
 
     if (
+      url.pathname.match(/^\/api\/classes\/\d+\/children\/\d+$/) &&
+      request.method === "GET"
+    ) {
+      return await getChildHandler(request, env, authContext);
+    }
+
+    if (
+      url.pathname.match(/^\/api\/classes\/\d+\/children$/) &&
+      request.method === "GET"
+    ) {
+      return await listChildrenHandler(request, env, authContext);
+    }
+
+    if (
+      url.pathname.match(/^\/api\/classes\/\d+\/children\/\d+$/) &&
+      request.method === "PATCH"
+    ) {
+      return await updateChildHandler(request, env, authContext);
+    }
+
+    if (
+      url.pathname.match(/^\/api\/classes\/\d+\/children$/) &&
+      request.method === "POST"
+    ) {
+      return await createChildHandler(request, env, authContext);
+    }	
+	
+    if (
       url.pathname.startsWith("/api/classes/") &&
       request.method === "GET"
     ) {
@@ -44,7 +76,7 @@ export async function router(
     ) {
       return await updateClassHandler(request, env, authContext);
     }
-
+    
     if (
       url.pathname.startsWith("/api/classes/") &&
       url.pathname.endsWith("/archive") &&
