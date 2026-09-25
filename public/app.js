@@ -12,12 +12,17 @@ import {
   createClass,
   updateClass,
   archiveClass,
+  getChildren,
+  createChild,
+  updateChild,
 } from "./api.js";
 
 const app = document.getElementById("app");
 
 let currentUser = null;
 let classesIncludeArchived = false;
+let childrenClassId = null;
+let childrenIncludeInactive = false;
 
 const navigationItems = [
   {
@@ -920,6 +925,562 @@ async function createClassesView() {
   return section;
 }
 
+function createChildrenTable(
+  children,
+  onEdit,
+  onToggleActive,
+) {
+  const wrapper = createElement("div", {
+    className: "table-wrapper",
+  });
+
+  const table = createElement("table", {
+    className: "data-table",
+  });
+
+  const thead = createElement("thead");
+  const headerRow = createElement("tr");
+
+  const headers = [
+    "children.name",
+    "common.active",
+    "common.actions",
+  ];
+
+  for (const key of headers) {
+    const th = createElement("th", {
+      text: t(key),
+    });
+
+    headerRow.append(th);
+  }
+
+  thead.append(headerRow);
+
+  const tbody = createElement("tbody");
+
+  for (const child of children) {
+    const row = createElement("tr");
+
+    row.append(
+      createElement("td", {
+        text: child.name,
+      }),
+    );
+
+    const statusCell = createElement("td");
+
+    statusCell.append(
+      createElement("span", {
+        className: `status-badge ${
+          child.active
+            ? "status-active"
+            : "status-inactive"
+        }`,
+        text: child.active
+          ? t("common.active")
+          : t("common.inactive"),
+      }),
+    );
+
+    row.append(statusCell);
+
+    const actionsCell = createElement("td", {
+      className: "table-actions",
+    });
+
+    const editButton = createElement("button", {
+      className: "button button-secondary",
+      text: t("common.edit"),
+      attributes: {
+        type: "button",
+      },
+    });
+
+    editButton.addEventListener("click", () => {
+      onEdit(child);
+    });
+
+    actionsCell.append(editButton);
+
+    if (isAdmin()) {
+      const toggleButton = createElement("button", {
+        className: child.active
+          ? "button button-danger"
+          : "button button-secondary",
+        text: child.active
+          ? t("children.deactivate")
+          : t("children.activate"),
+        attributes: {
+          type: "button",
+        },
+      });
+
+      toggleButton.addEventListener("click", () => {
+        onToggleActive(child);
+      });
+
+      actionsCell.append(toggleButton);
+    }
+
+    row.append(actionsCell);
+    tbody.append(row);
+  }
+
+  table.append(thead, tbody);
+  wrapper.append(table);
+
+  return wrapper;
+}
+
+function createChildForm(
+  classId,
+  child = null,
+  onSaved = null,
+) {
+  const form = createElement("form", {
+    className: "child-form class-form",
+  });
+
+  const title = createElement("h2", {
+    className: "form-title",
+    text: child
+      ? t("children.edit")
+      : t("children.create"),
+  });
+
+  const nameGroup = createElement("div", {
+    className: "form-group",
+  });
+
+  const nameLabel = createElement("label", {
+    text: t("children.name"),
+    attributes: {
+      for: "child-name",
+    },
+  });
+
+  const nameInput = createElement("input", {
+    attributes: {
+      id: "child-name",
+      name: "name",
+      type: "text",
+      required: "required",
+      autocomplete: "off",
+      value: child?.name ?? "",
+    },
+  });
+
+  nameGroup.append(nameLabel, nameInput);
+
+  const formActions = createElement("div", {
+    className: "form-actions",
+  });
+
+  const saveButton = createElement("button", {
+    className: "button button-primary",
+    text: t("common.save"),
+    attributes: {
+      type: "submit",
+    },
+  });
+
+  const cancelButton = createElement("button", {
+    className: "button button-secondary",
+    text: t("common.cancel"),
+    attributes: {
+      type: "button",
+    },
+  });
+
+  cancelButton.addEventListener("click", () => {
+    form.remove();
+  });
+
+  formActions.append(saveButton, cancelButton);
+
+  form.append(
+    title,
+    nameGroup,
+    formActions,
+  );
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    saveButton.disabled = true;
+
+    try {
+      if (!child) {
+        await createChild(classId, {
+          name: nameInput.value.trim(),
+        });
+      } else {
+        await updateChild(
+          classId,
+          child.id,
+          {
+            name: nameInput.value.trim(),
+          },
+        );
+      }
+
+      if (onSaved) {
+        await onSaved();
+      }
+    } catch (error) {
+      console.error(
+        "Failed to save child:",
+        error,
+      );
+
+      window.alert(
+        error.message ||
+          t("messages.operationFailed"),
+      );
+
+      saveButton.disabled = false;
+    }
+  });
+
+  return form;
+}
+
+async function createChildrenView() {
+  const section = createElement("section", {
+    className: "content-view",
+  });
+
+  const header = createElement("div", {
+    className: "content-view-header",
+  });
+
+  const headerContent = createElement("div");
+
+  const title = createElement("h1", {
+    className: "page-title",
+    text: t("children.title"),
+  });
+
+  const description = createElement("p", {
+    className: "page-description",
+    text: t("common.loading"),
+  });
+
+  headerContent.append(title, description);
+
+  const headerActions = createElement("div", {
+    className: "content-view-actions",
+  });
+
+  const classSelectLabel = createElement("label", {
+    className: "form-inline-label",
+    text: t("classes.title"),
+  });
+
+  const classSelect = createElement("select", {
+    className: "form-select",
+    attributes: {
+      "aria-label": t("classes.title"),
+    },
+  });
+
+  headerActions.append(
+    classSelectLabel,
+    classSelect,
+  );
+
+  if (isAdmin()) {
+    const inactiveLabel = createElement("label", {
+      className: "checkbox-label",
+    });
+
+    const inactiveCheckbox = createElement("input", {
+      attributes: {
+        type: "checkbox",
+      },
+    });
+
+    inactiveCheckbox.checked =
+      childrenIncludeInactive;
+
+    inactiveCheckbox.addEventListener(
+      "change",
+      async () => {
+        childrenIncludeInactive =
+          inactiveCheckbox.checked;
+
+        await loadChildren();
+      },
+    );
+
+    inactiveLabel.append(
+      inactiveCheckbox,
+      createElement("span", {
+        text: t("children.includeInactive"),
+      }),
+    );
+
+    headerActions.append(inactiveLabel);
+  }
+
+  const createButton = createElement("button", {
+    className: "button button-primary",
+    text: t("children.create"),
+    attributes: {
+      type: "button",
+    },
+  });
+
+  headerActions.append(createButton);
+
+  header.append(
+    headerContent,
+    headerActions,
+  );
+
+  const content = createElement("div", {
+    className: "content-panel",
+  });
+
+  content.append(
+    createElement("p", {
+      className: "content-panel-message",
+      text: t("common.loading"),
+    }),
+  );
+
+  section.append(header, content);
+
+  const reload = async () => {
+    await loadChildren();
+  };
+
+  const editChild = (child) => {
+    const existingForm = section.querySelector(
+      ".child-form",
+    );
+
+    if (existingForm) {
+      existingForm.remove();
+    }
+
+    const form = createChildForm(
+      childrenClassId,
+      child,
+      reload,
+    );
+
+    section.insertBefore(form, content);
+  };
+
+  const toggleChildActive = async (child) => {
+    const action = child.active
+      ? t("children.deactivate")
+      : t("children.activate");
+
+    const confirmed = window.confirm(
+      `${action}: ${child.name}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await updateChild(
+        childrenClassId,
+        child.id,
+        {
+          active: !child.active,
+        },
+      );
+
+      await loadChildren();
+    } catch (error) {
+      console.error(
+        "Failed to change child status:",
+        error,
+      );
+
+      window.alert(
+        error.message ||
+          t("messages.operationFailed"),
+      );
+    }
+  };
+
+  const loadChildren = async () => {
+    if (!childrenClassId) {
+      content.replaceChildren(
+        createElement("p", {
+          className: "content-panel-message",
+          text: t("common.noData"),
+        }),
+      );
+
+      return;
+    }
+
+    try {
+      const result = await getChildren(
+        childrenClassId,
+        isAdmin() && childrenIncludeInactive,
+      );
+
+      const children =
+        result?.data?.children ?? [];
+
+      description.textContent =
+        `${children.length}`;
+
+      if (children.length === 0) {
+        content.replaceChildren(
+          createElement("p", {
+            className: "content-panel-message",
+            text: t("common.noData"),
+          }),
+        );
+
+        return;
+      }
+
+      content.replaceChildren(
+        createChildrenTable(
+          children,
+          editChild,
+          toggleChildActive,
+        ),
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load children:",
+        error,
+      );
+
+      description.textContent =
+        t("errors.network");
+
+      content.replaceChildren(
+        createElement("p", {
+          className: "content-panel-message error",
+          text: t("messages.operationFailed"),
+        }),
+      );
+    }
+  };
+
+  try {
+    const result = await getClasses(false);
+
+    const classes = result?.data?.classes ?? [];
+
+    classSelect.replaceChildren();
+
+    for (const classItem of classes) {
+      const option = createElement("option", {
+        text: `${classItem.code} – ${classItem.displayName}`,
+        attributes: {
+          value: String(classItem.id),
+        },
+      });
+
+      classSelect.append(option);
+    }
+
+    if (classes.length === 0) {
+      classSelect.disabled = true;
+      createButton.disabled = true;
+
+      description.textContent =
+        t("common.noData");
+
+      content.replaceChildren(
+        createElement("p", {
+          className: "content-panel-message",
+          text: t("common.noData"),
+        }),
+      );
+
+      return section;
+    }
+
+    const selectedClassExists = classes.some(
+      (classItem) =>
+        classItem.id === childrenClassId,
+    );
+
+    if (!selectedClassExists) {
+      childrenClassId = classes[0].id;
+    }
+
+    classSelect.value = String(childrenClassId);
+
+    classSelect.addEventListener(
+      "change",
+      async () => {
+        childrenClassId = Number(
+          classSelect.value,
+        );
+
+        const existingForm = section.querySelector(
+          ".child-form",
+        );
+
+        if (existingForm) {
+          existingForm.remove();
+        }
+
+        await loadChildren();
+      },
+    );
+
+    createButton.addEventListener(
+      "click",
+      () => {
+        const existingForm = section.querySelector(
+          ".child-form",
+        );
+
+        if (existingForm) {
+          existingForm.remove();
+          return;
+        }
+
+        const form = createChildForm(
+          childrenClassId,
+          null,
+          reload,
+        );
+
+        section.insertBefore(form, content);
+      },
+    );
+
+    await loadChildren();
+  } catch (error) {
+    console.error(
+      "Failed to load classes for children:",
+      error,
+    );
+
+    classSelect.disabled = true;
+    createButton.disabled = true;
+
+    description.textContent =
+      t("errors.network");
+
+    content.replaceChildren(
+      createElement("p", {
+        className: "content-panel-message error",
+        text: t("messages.operationFailed"),
+      }),
+    );
+  }
+
+  return section;
+}
+
 function createEmptyView(view) {
   const translation = viewTranslations[view];
 
@@ -976,6 +1537,8 @@ async function createMain(currentView) {
     main.append(createDashboardView());
   } else if (currentView === "classes") {
     main.append(await createClassesView());
+  } else if (currentView === "children") {
+    main.append(await createChildrenView());
   } else {
     main.append(createEmptyView(currentView));
   }

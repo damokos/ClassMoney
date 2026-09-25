@@ -9,6 +9,7 @@ import { getDb } from "../../db/client";
 import { updateChild } from "../../db/repositories/children";
 import {
   BadRequestError,
+  ForbiddenError,
   NotFoundError,
 } from "../../http/errors";
 import { successResponse } from "../../http/response";
@@ -35,8 +36,9 @@ export async function updateChildHandler(
   }
 
   const user = authContext.user;
+  const isAdmin = hasGlobalRole(user, "ADMIN");
 
-  if (!hasGlobalRole(user, "ADMIN")) {
+  if (!isAdmin) {
     requireAnyClassRole(
       user,
       classId,
@@ -70,6 +72,12 @@ export async function updateChildHandler(
   if (input.active !== undefined) {
     if (typeof input.active !== "boolean") {
       throw new BadRequestError("Active must be a boolean");
+    }
+
+    if (!isAdmin) {
+      throw new ForbiddenError(
+        "Only administrators can activate or deactivate children",
+      );
     }
   }
 

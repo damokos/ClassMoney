@@ -37,7 +37,11 @@ export async function router(
       return await healthHandler(env);
     }
 
-    const authContext = await getAuthContext(env, ctx);
+    const authContext = await getAuthContext(
+      request,
+      env,
+      ctx,
+    );
 
     if (url.pathname === "/api/me" && request.method === "GET") {
       return await meHandler(request, env, authContext);

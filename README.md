@@ -8,36 +8,123 @@ ClassMoney is designed to run as a lightweight web application using Cloudflare 
 
 ## Requirements
 
-> This section is currently a placeholder and will contain the complete installation and deployment requirements before the first production release.
-
-The planned deployment environment requires:
+A ClassMoney deployment requires:
 
 - A Cloudflare account
 - A Cloudflare D1 database
+- A Cloudflare R2 bucket
+- A Cloudflare Access application
 - Node.js and npm
 - Wrangler CLI
 - A domain name or Cloudflare-managed hostname for production use
 
-The exact required versions, Cloudflare configuration, database initialization procedure, environment variables, authentication configuration, and deployment steps will be documented here.
+Each deployment requires its own Cloudflare environment and authentication configuration.
+
 
 ## Installation and deployment
 
-> This section is currently a placeholder.
+The complete installation process is intended to be performed from a clean Cloudflare environment.
 
-The final documentation will provide a complete step-by-step installation and deployment guide, including:
+The deployment consists of the following major steps:
 
-1. Required accounts and services
-2. Local development environment setup
-3. Cloudflare configuration
-4. D1 database creation
-5. Database schema initialization
-6. Environment and secret configuration
-7. Local development
-8. Production deployment
-9. Domain and DNS configuration
-10. Initial administrator setup
+1. Create or prepare a Cloudflare account
+2. Install Node.js and npm
+3. Clone the ClassMoney repository
+4. Install project dependencies
+5. Create the D1 database
+6. Create the R2 bucket
+7. Initialize the D1 database schema
+8. Configure Cloudflare Access
+9. Configure the Worker environment variables
+10. Configure the Cloudflare Worker
+11. Deploy the application
+12. Configure the production domain
+13. Verify authentication and application access
+14. Complete the initial administrator setup
 
 The goal is that a technically competent user can deploy a complete ClassMoney instance from a clean environment by following this documentation without requiring access to the original development environment.
+
+### Cloudflare Access
+
+ClassMoney uses Cloudflare Access for user authentication.
+
+The Worker validates the Cloudflare Access JWT using the `CF-Access-Jwt-Assertion` request header. The JWT signature is verified against the public keys provided by the Cloudflare Access team domain, and the issuer, audience, and token validity are checked before the authenticated email address is accepted by the application.
+
+Each ClassMoney deployment must have its own Cloudflare Access application.
+
+The Access application must protect the ClassMoney Worker and allow the users who should be able to access the application.
+
+### Access environment variables
+
+The following Worker environment variables are required for production authentication:
+
+    TEAM_DOMAIN
+    POLICY_AUD
+
+These values are deployment-specific and must not be hardcoded into the source code.
+
+`TEAM_DOMAIN` is the Cloudflare Access Team Domain of the deployment.
+
+Example:
+
+    example.cloudflareaccess.com
+
+`POLICY_AUD` is the Application Audience (AUD) Tag of the Cloudflare Access application protecting ClassMoney.
+
+These values are not passwords or authentication secrets, but they are deployment-specific configuration and therefore should not be committed to the public repository.
+
+Configure them in the Cloudflare Worker dashboard:
+
+    Workers & Pages
+        -> classmoney
+        -> Settings
+        -> Variables and Secrets
+
+Add both variables as text variables.
+
+The actual values will be different for each ClassMoney installation.
+
+Do not put the production values into `wrangler.jsonc` or commit them to Git.
+
+### Cloudflare Access configuration
+
+Create an Access application for the ClassMoney Worker.
+
+The application must protect the ClassMoney Worker URL and define the authentication policy for the users who are allowed to use the application.
+
+After creating the application, obtain its Application Audience (AUD) Tag and use that value as `POLICY_AUD`.
+
+The Access Team Domain is used as `TEAM_DOMAIN`.
+
+The application should be tested after deployment by accessing the ClassMoney application through the protected URL and verifying that `/api/me` returns the authenticated user information.
+
+### Local development
+
+Local development uses Wrangler.
+
+The repository contains separate Wrangler configurations for local development and authentication testing where required.
+
+The development configuration can provide a local Cloudflare Access identity for testing the application without requiring a production Access login.
+
+Start local development with:
+
+    npx wrangler dev --config wrangler.dev.jsonc
+
+Authentication-specific tests can use:
+
+    npx wrangler dev --config wrangler.test.jsonc
+
+The local configurations are environment-specific and must not be published with production credentials or other sensitive information.
+
+### Deployment
+
+The production deployment is performed through Cloudflare Workers Builds.
+
+The repository is connected to the Cloudflare Worker and changes pushed to the configured branch are automatically built and deployed.
+
+A local dry run can be used to verify the Worker configuration without deploying:
+
+    npx wrangler deploy --dry-run
 
 ## Features
 
@@ -184,20 +271,31 @@ The application is designed around the following basic architecture:
     Browser
         |
         v
+    Cloudflare Access
+        |
+        v
     Cloudflare Workers
         |
         +-- Authentication and authorization
         +-- Application API
         +-- Administrative interface
         |
-        v
-    Cloudflare D1
-        |
-        +-- ClassMoney database
+        +------------------+
+        |                  |
+        v                  v
+    Cloudflare D1      Cloudflare R2
+    ClassMoney DB      Receipts and files
+
+Cloudflare Access provides the external authentication layer.
+
+The Worker validates the authenticated Access JWT and uses the verified email address to resolve the corresponding ClassMoney user and roles.
+
+Application authorization is enforced by the Worker and remains independent from the Access policy. Cloudflare Access controls who can reach the application, while ClassMoney roles control what an authenticated user can do inside the application.
 
 Additional Cloudflare services may be introduced where they provide a clear benefit to the application.
 
 Detailed architecture documentation will be maintained in the `docs/` directory.
+
 
 ## Administrative module
 
@@ -329,9 +427,15 @@ Never commit the following to the repository:
 - Production database credentials
 - Personal data
 - Financial data
+- Deployment-specific secrets
 - Other confidential information
 
-Local secrets and environment-specific configuration must remain outside version control.
+Local secrets and environment-specific configuration should remain outside version control where practical.
+
+Cloudflare Access authentication configuration such as the Team Domain and Application Audience Tag is deployment-specific and must not be hardcoded into the application source code.
+
+The ClassMoney Worker must always validate the Cloudflare Access JWT before using the authenticated identity.
+
 
 ## License
 

@@ -87,6 +87,7 @@ const hu = {
     edit: "Gyermek szerkesztése",
     deactivate: "Gyermek deaktiválása",
     activate: "Gyermek aktiválása",
+    includeInactive: "Inaktív gyermekek megjelenítése",
   },
 
   users: {

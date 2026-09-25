@@ -70,3 +70,43 @@ export async function archiveClass(id) {
     method: "POST",
   });
 }
+
+export async function getChildren(
+  classId,
+  includeInactive = false,
+) {
+  const query = includeInactive
+    ? "?includeInactive=true"
+    : "";
+
+  return request(
+    `/api/classes/${classId}/children${query}`,
+  );
+}
+
+export async function createChild(classId, input) {
+  return request(`/api/classes/${classId}/children`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateChild(
+  classId,
+  childId,
+  input,
+) {
+  return request(
+    `/api/classes/${classId}/children/${childId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+  );
+}

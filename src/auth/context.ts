@@ -6,10 +6,15 @@ import { getAuthenticatedIdentity } from "./identity";
 import type { AuthContext } from "./types";
 
 export async function getAuthContext(
+  request: Request,
   env: Env,
   ctx: ExecutionContext,
 ): Promise<AuthContext | null> {
-  const identity = await getAuthenticatedIdentity(ctx);
+  const identity = await getAuthenticatedIdentity(
+    request,
+    env,
+    ctx,
+  );
 
   if (!identity) {
     return null;

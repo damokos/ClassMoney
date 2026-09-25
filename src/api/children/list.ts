@@ -7,7 +7,10 @@ import {
   requireAuthenticatedUser,
   requireAnyClassRole,
 } from "../../auth/authorization";
-import { NotFoundError } from "../../http/errors";
+import {
+  ForbiddenError,
+  NotFoundError,
+} from "../../http/errors";
 import { successResponse } from "../../http/response";
 
 export async function listChildrenHandler(
@@ -19,15 +22,18 @@ export async function listChildrenHandler(
 
   const url = new URL(request.url);
   const parts = url.pathname.split("/");
-  const classId = Number(parts[parts.indexOf("classes") + 1]);
+  const classId = Number(
+    parts[parts.indexOf("classes") + 1],
+  );
 
   if (!Number.isInteger(classId) || classId <= 0) {
     throw new NotFoundError("Class not found");
   }
 
   const user = authContext.user;
+  const isAdmin = hasGlobalRole(user, "ADMIN");
 
-  if (!hasGlobalRole(user, "ADMIN")) {
+  if (!isAdmin) {
     requireAnyClassRole(
       user,
       classId,
@@ -37,6 +43,12 @@ export async function listChildrenHandler(
 
   const includeInactive =
     url.searchParams.get("includeInactive") === "true";
+
+  if (includeInactive && !isAdmin) {
+    throw new ForbiddenError(
+      "Only administrators can view inactive children",
+    );
+  }
 
   const children = await listChildren(
     getDb(env),
