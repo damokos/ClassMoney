@@ -70,12 +70,26 @@ export async function createClassHandler(
     throw new BadRequestError("Timezone is required");
   }
 
+  if (
+    input.bankAccountNumber !== undefined &&
+    input.bankAccountNumber !== null &&
+    typeof input.bankAccountNumber !== "string"
+  ) {
+    throw new BadRequestError(
+      "Bank account number must be a string",
+    );
+  }
+
   const classItem = await createClass(getDb(env), {
     code: input.code.trim(),
     displayName: input.displayName.trim(),
     currency: input.currency.trim().toUpperCase(),
     currencyDecimals: input.currencyDecimals,
     timezone: input.timezone.trim(),
+    bankAccountNumber:
+      typeof input.bankAccountNumber === "string"
+        ? input.bankAccountNumber.trim() || null
+        : null,
   });
 
   return successResponse(

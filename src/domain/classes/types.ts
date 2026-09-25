@@ -6,6 +6,7 @@ export interface Class {
   currencyDecimals: number;
   balance: number;
   timezone: string;
+  bankAccountNumber: string | null;
   active: boolean;
   archivedAt: string | null;
   createdAt: string;
@@ -18,6 +19,7 @@ export interface CreateClassInput {
   currency: string;
   currencyDecimals: number;
   timezone: string;
+  bankAccountNumber?: string | null;
 }
 
 export interface UpdateClassInput {
@@ -25,4 +27,5 @@ export interface UpdateClassInput {
   currency?: string;
   currencyDecimals?: number;
   timezone?: string;
+  bankAccountNumber?: string | null;
 }

@@ -12,6 +12,7 @@ interface ClassRow {
   currency_decimals: number;
   balance: number;
   timezone: string;
+  bank_account_number: string | null;
   active: number;
   archived_at: string | null;
   created_at: string;
@@ -27,6 +28,7 @@ function mapClass(row: ClassRow): Class {
     currencyDecimals: row.currency_decimals,
     balance: row.balance,
     timezone: row.timezone,
+    bankAccountNumber: row.bank_account_number,
     active: row.active === 1,
     archivedAt: row.archived_at,
     createdAt: row.created_at,
@@ -42,6 +44,7 @@ const CLASS_COLUMNS = `
   currency_decimals,
   balance,
   timezone,
+  bank_account_number,
   active,
   archived_at,
   created_at,
@@ -56,16 +59,18 @@ export async function listClasses(
     ? `
       SELECT ${CLASS_COLUMNS}
       FROM classes
-      ORDER BY display_name COLLATE NOCASE, id
+      ORDER BY code COLLATE NOCASE, id
     `
     : `
       SELECT ${CLASS_COLUMNS}
       FROM classes
       WHERE active = 1
-      ORDER BY display_name COLLATE NOCASE, id
+      ORDER BY code COLLATE NOCASE, id
     `;
 
-  const result = await db.prepare(query).all<ClassRow>();
+  const result = await db
+    .prepare(query)
+    .all<ClassRow>();
 
   return result.results.map(mapClass);
 }
@@ -76,28 +81,17 @@ export async function listClassesForUser(
 ): Promise<Class[]> {
   const result = await db
     .prepare(`
-      SELECT DISTINCT
-        classes.id,
-        classes.code,
-        classes.display_name,
-        classes.currency,
-        classes.currency_decimals,
-        classes.balance,
-        classes.timezone,
-        classes.active,
-        classes.archived_at,
-        classes.created_at,
-        classes.updated_at
+      SELECT DISTINCT ${CLASS_COLUMNS}
       FROM classes
       INNER JOIN user_roles
         ON user_roles.class_id = classes.id
-      WHERE user_roles.user_id = ?
+      WHERE classes.active = 1
+        AND user_roles.user_id = ?
         AND user_roles.role IN (
           'PARENT_REPRESENTATIVE',
           'TREASURER'
         )
-        AND classes.active = 1
-      ORDER BY classes.display_name COLLATE NOCASE, classes.id
+      ORDER BY code COLLATE NOCASE, id
     `)
     .bind(userId)
     .all<ClassRow>();
@@ -127,7 +121,7 @@ export async function createClass(
 ): Promise<Class> {
   const now = new Date().toISOString();
 
-  const result = await db
+  const row = await db
     .prepare(`
       INSERT INTO classes (
         code,
@@ -135,10 +129,12 @@ export async function createClass(
         currency,
         currency_decimals,
         timezone,
+        bank_account_number,
+        active,
         created_at,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
       RETURNING ${CLASS_COLUMNS}
     `)
     .bind(
@@ -147,16 +143,17 @@ export async function createClass(
       input.currency,
       input.currencyDecimals,
       input.timezone,
+      input.bankAccountNumber ?? null,
       now,
       now,
     )
     .first<ClassRow>();
 
-  if (!result) {
+  if (!row) {
     throw new Error("Failed to create class");
   }
 
-  return mapClass(result);
+  return mapClass(row);
 }
 
 export async function updateClass(
@@ -172,13 +169,20 @@ export async function updateClass(
 
   const updatedAt = new Date().toISOString();
 
-  const displayName = input.displayName ?? current.displayName;
-  const currency = input.currency ?? current.currency;
+  const displayName =
+    input.displayName ?? current.displayName;
+  const currency =
+    input.currency ?? current.currency;
   const currencyDecimals =
     input.currencyDecimals ?? current.currencyDecimals;
-  const timezone = input.timezone ?? current.timezone;
+  const timezone =
+    input.timezone ?? current.timezone;
+  const bankAccountNumber =
+    input.bankAccountNumber !== undefined
+      ? input.bankAccountNumber
+      : current.bankAccountNumber;
 
-  const result = await db
+  const row = await db
     .prepare(`
       UPDATE classes
       SET
@@ -186,6 +190,7 @@ export async function updateClass(
         currency = ?,
         currency_decimals = ?,
         timezone = ?,
+        bank_account_number = ?,
         updated_at = ?
       WHERE id = ?
       RETURNING ${CLASS_COLUMNS}
@@ -195,21 +200,32 @@ export async function updateClass(
       currency,
       currencyDecimals,
       timezone,
+      bankAccountNumber,
       updatedAt,
       id,
     )
     .first<ClassRow>();
 
-  return result ? mapClass(result) : null;
+  return row ? mapClass(row) : null;
 }
 
 export async function archiveClass(
   db: D1Database,
   id: number,
 ): Promise<Class | null> {
-  const now = new Date().toISOString();
+  const current = await getClassById(db, id);
 
-  const result = await db
+  if (!current) {
+    return null;
+  }
+
+  if (!current.active) {
+    return current;
+  }
+
+  const archivedAt = new Date().toISOString();
+
+  const row = await db
     .prepare(`
       UPDATE classes
       SET
@@ -217,11 +233,14 @@ export async function archiveClass(
         archived_at = ?,
         updated_at = ?
       WHERE id = ?
-        AND active = 1
       RETURNING ${CLASS_COLUMNS}
     `)
-    .bind(now, now, id)
+    .bind(
+      archivedAt,
+      archivedAt,
+      id,
+    )
     .first<ClassRow>();
 
-  return result ? mapClass(result) : null;
+  return row ? mapClass(row) : null;
 }
