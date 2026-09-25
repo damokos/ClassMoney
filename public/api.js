@@ -35,6 +35,38 @@ export async function getMe() {
   return request("/api/me");
 }
 
-export async function getClasses() {
-  return request("/api/classes");
+export async function getClasses(
+  includeArchived = false,
+) {
+  const query = includeArchived
+    ? "?includeArchived=true"
+    : "";
+
+  return request(`/api/classes${query}`);
+}
+
+export async function createClass(input) {
+  return request("/api/classes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateClass(id, input) {
+  return request(`/api/classes/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function archiveClass(id) {
+  return request(`/api/classes/${id}`, {
+    method: "POST",
+  });
 }

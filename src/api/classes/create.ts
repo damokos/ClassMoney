@@ -73,10 +73,13 @@ export async function createClassHandler(
   if (
     input.bankAccountNumber !== undefined &&
     input.bankAccountNumber !== null &&
-    typeof input.bankAccountNumber !== "string"
+    (
+      typeof input.bankAccountNumber !== "string" ||
+      input.bankAccountNumber.trim().length === 0
+    )
   ) {
     throw new BadRequestError(
-      "Bank account number must be a string",
+      "Bank account number must not be empty",
     );
   }
 
@@ -87,9 +90,11 @@ export async function createClassHandler(
     currencyDecimals: input.currencyDecimals,
     timezone: input.timezone.trim(),
     bankAccountNumber:
-      typeof input.bankAccountNumber === "string"
-        ? input.bankAccountNumber.trim() || null
-        : null,
+      input.bankAccountNumber === null
+        ? null
+        : typeof input.bankAccountNumber === "string"
+          ? input.bankAccountNumber.trim()
+          : undefined,
   });
 
   return successResponse(

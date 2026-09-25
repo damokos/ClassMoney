@@ -3,12 +3,10 @@ import type { Env } from "../../types/env";
 import { getDb } from "../../db/client";
 import { updateClass } from "../../db/repositories/classes";
 import {
-  hasGlobalRole,
   requireAuthenticatedUser,
-  requireClassRole,
   requireGlobalRole,
 } from "../../auth/authorization";
-import { BadRequestError, ForbiddenError, NotFoundError } from "../../http/errors";
+import { BadRequestError, NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 
 export async function updateClassHandler(
@@ -17,6 +15,7 @@ export async function updateClassHandler(
   authContext: AuthContext | null,
 ): Promise<Response> {
   requireAuthenticatedUser(authContext?.user ?? null);
+  requireGlobalRole(authContext.user, "ADMIN");
 
   const url = new URL(request.url);
   const id = Number(url.pathname.split("/").pop());
@@ -38,30 +37,6 @@ export async function updateClassHandler(
   }
 
   const input = body as Record<string, unknown>;
-
-  const isAdmin = hasGlobalRole(authContext.user, "ADMIN");
-
-  if (!isAdmin) {
-    requireClassRole(
-      authContext.user,
-      id,
-      "TREASURER",
-    );
-
-    const allowedKeys = new Set([
-      "bankAccountNumber",
-    ]);
-
-    for (const key of Object.keys(input)) {
-      if (!allowedKeys.has(key)) {
-        throw new ForbiddenError(
-          "Treasurers can only modify the bank account number",
-        );
-      }
-    }
-  } else {
-    requireGlobalRole(authContext.user, "ADMIN");
-  }
 
   if (input.displayName !== undefined) {
     if (
@@ -106,10 +81,13 @@ export async function updateClassHandler(
   if (
     input.bankAccountNumber !== undefined &&
     input.bankAccountNumber !== null &&
-    typeof input.bankAccountNumber !== "string"
+    (
+      typeof input.bankAccountNumber !== "string" ||
+      input.bankAccountNumber.trim().length === 0
+    )
   ) {
     throw new BadRequestError(
-      "Bank account number must be a string",
+      "Bank account number must not be empty",
     );
   }
 
@@ -131,11 +109,11 @@ export async function updateClassHandler(
         ? input.timezone.trim()
         : undefined,
     bankAccountNumber:
-      input.bankAccountNumber !== undefined
-        ? typeof input.bankAccountNumber === "string"
-          ? input.bankAccountNumber.trim() || null
-          : null
-        : undefined,
+      input.bankAccountNumber === null
+        ? null
+        : typeof input.bankAccountNumber === "string"
+          ? input.bankAccountNumber.trim()
+          : undefined,
   });
 
   if (!classItem) {

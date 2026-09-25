@@ -37,18 +37,18 @@ function mapClass(row: ClassRow): Class {
 }
 
 const CLASS_COLUMNS = `
-  id,
-  code,
-  display_name,
-  currency,
-  currency_decimals,
-  balance,
-  timezone,
-  bank_account_number,
-  active,
-  archived_at,
-  created_at,
-  updated_at
+  classes.id,
+  classes.code,
+  classes.display_name,
+  classes.currency,
+  classes.currency_decimals,
+  classes.balance,
+  classes.timezone,
+  classes.bank_account_number,
+  classes.active,
+  classes.archived_at,
+  classes.created_at,
+  classes.updated_at
 `;
 
 export async function listClasses(
@@ -91,7 +91,7 @@ export async function listClassesForUser(
           'PARENT_REPRESENTATIVE',
           'TREASURER'
         )
-      ORDER BY code COLLATE NOCASE, id
+      ORDER BY classes.code COLLATE NOCASE, classes.id
     `)
     .bind(userId)
     .all<ClassRow>();
