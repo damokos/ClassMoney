@@ -19,6 +19,8 @@ import {
   addUserRoleHandler,
   removeUserRoleHandler,
 } from "./api/users/roles";
+import { payChargeHandler } from "./api/charges/pay";
+
 
 export async function router(
   request: Request,
@@ -33,6 +35,20 @@ export async function router(
     }
 
     const authContext = await getAuthContext(env, ctx);
+
+
+
+
+    if (
+      url.pathname.match(/^\/api\/charges\/\d+\/pay$/) &&
+      request.method === "POST"
+    ) {
+      return await payChargeHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
 
     if (
       url.pathname.match(/^\/api\/users\/\d+$/) &&
@@ -108,8 +124,8 @@ export async function router(
       request.method === "POST"
     ) {
       return await createChildHandler(request, env, authContext);
-    }	
-	
+    }
+
     if (
       url.pathname.startsWith("/api/classes/") &&
       request.method === "GET"
@@ -123,7 +139,7 @@ export async function router(
     ) {
       return await updateClassHandler(request, env, authContext);
     }
-    
+
     if (
       url.pathname.startsWith("/api/classes/") &&
       url.pathname.endsWith("/archive") &&
