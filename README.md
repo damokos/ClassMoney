@@ -67,7 +67,7 @@ These values are deployment-specific and must not be hardcoded into the source c
 
 Example:
 
-    example.cloudflareaccess.com
+    https://example.cloudflareaccess.com
 
 `POLICY_AUD` is the Application Audience (AUD) Tag of the Cloudflare Access application protecting ClassMoney.
 

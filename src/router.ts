@@ -1,41 +1,37 @@
 import type { Env } from "./types/env";
-import { archiveClassHandler } from "./api/classes/archive";
-import { createClassHandler } from "./api/classes/create";
-import { getClassHandler } from "./api/classes/get";
-import { listClassesHandler } from "./api/classes/list";
-import { updateClassHandler } from "./api/classes/update";
-import { healthHandler } from "./api/health";
-import { meHandler } from "./api/me";
-import { AppError, NotFoundError } from "./http/errors";
-import { errorResponse } from "./http/response";
 import { getAuthContext } from "./auth/context";
-import { listChildrenHandler } from "./api/children/list";
+import { meHandler } from "./api/me";
+import { listClassesHandler } from "./api/classes/list";
+import { getClassHandler } from "./api/classes/get";
+import { createClassHandler } from "./api/classes/create";
+import { updateClassHandler } from "./api/classes/update";
+import { getFinancesHandler } from "./api/finances/get";
 import { createChildHandler } from "./api/children/create";
+import { listChildrenHandler } from "./api/children/list";
 import { getChildHandler } from "./api/children/get";
 import { updateChildHandler } from "./api/children/update";
 import { listUsersHandler } from "./api/users/list";
 import { getUserHandler } from "./api/users/get";
 import { updateUserHandler } from "./api/users/update";
-import {
-  addUserRoleHandler,
-  removeUserRoleHandler,
-} from "./api/users/roles";
 import { payChargeHandler } from "./api/charges/pay";
-import { payExpenseHandler } from "./api/expenses/pay";
 import { createExpenseHandler } from "./api/expenses/create";
+import { payExpenseHandler } from "./api/expenses/pay";
 import { cancelExpenseHandler } from "./api/expenses/cancel";
+import { createFinancialTransactionHandler } from "./api/financial-transactions/create";
+import { payFinancialTransactionHandler } from "./api/financial-transactions/pay";
+import { cancelFinancialTransactionHandler } from "./api/financial-transactions/cancel";
+import { AppError } from "./http/errors";
+import { errorResponse } from "./http/response";
 
 export async function router(
   request: Request,
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> {
-  const url = new URL(request.url);
-
   try {
-    if (url.pathname === "/api/health" && request.method === "GET") {
-      return await healthHandler(env);
-    }
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+    const method = request.method;
 
     const authContext = await getAuthContext(
       request,
@@ -43,15 +39,8 @@ export async function router(
       ctx,
     );
 
-    if (url.pathname === "/api/me" && request.method === "GET") {
-      return await meHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.match(/^\/api\/classes\/\d+\/expenses$/) &&
-      request.method === "POST"
-    ) {
-      return await createExpenseHandler(
+    if (method === "GET" && pathname === "/api/me") {
+      return meHandler(
         request,
         env,
         authContext,
@@ -59,152 +48,248 @@ export async function router(
     }
 
     if (
-      url.pathname.match(/^\/api\/charges\/\d+\/pay$/) &&
-      request.method === "POST"
+      method === "GET" &&
+      pathname === "/api/classes"
     ) {
-      return await payChargeHandler(
+      return listClassesHandler(
         request,
         env,
         authContext,
       );
     }
 
-    if (
-      url.pathname.match(/^\/api\/expenses\/\d+\/pay$/) &&
-      request.method === "POST"
-    ) {
-      return await payExpenseHandler(
-        request,
-        env,
-        authContext,
-      );
-    }
-
-    if (
-      url.pathname.match(/^\/api\/expenses\/\d+\/cancel$/) &&
-      request.method === "POST"
-    ) {
-      return await cancelExpenseHandler(
-        request,
-        env,
-        authContext,
-      );
-    }
-
-    if (
-      url.pathname.match(/^\/api\/users\/\d+$/) &&
-      request.method === "PATCH"
-    ) {
-      return await updateUserHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.match(/^\/api\/users\/\d+\/roles$/) &&
-      request.method === "DELETE"
-    ) {
-      return await removeUserRoleHandler(
-        request,
-        env,
-        authContext,
-      );
-    }
-
-    if (
-      url.pathname.match(/^\/api\/users\/\d+\/roles$/) &&
-      request.method === "POST"
-    ) {
-      return await addUserRoleHandler(
-        request,
-        env,
-        authContext,
-      );
-    }
-
-    if (
-      url.pathname.match(/^\/api\/users\/\d+$/) &&
-      request.method === "GET"
-    ) {
-      return await getUserHandler(request, env, authContext);
-    }
-
-    if (url.pathname === "/api/users" && request.method === "GET") {
-      return await listUsersHandler(request, env, authContext);
-    }
-
-    if (url.pathname === "/api/classes" && request.method === "GET") {
-      return await listClassesHandler(request, env, authContext);
-    }
-
-    if (url.pathname === "/api/classes" && request.method === "POST") {
-      return await createClassHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.match(/^\/api\/classes\/\d+\/children\/\d+$/) &&
-      request.method === "GET"
-    ) {
-      return await getChildHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.match(/^\/api\/classes\/\d+\/children$/) &&
-      request.method === "GET"
-    ) {
-      return await listChildrenHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.match(/^\/api\/classes\/\d+\/children\/\d+$/) &&
-      request.method === "PATCH"
-    ) {
-      return await updateChildHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.match(/^\/api\/classes\/\d+\/children$/) &&
-      request.method === "POST"
-    ) {
-      return await createChildHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.startsWith("/api/classes/") &&
-      request.method === "GET"
-    ) {
-      return await getClassHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.startsWith("/api/classes/") &&
-      request.method === "PATCH"
-    ) {
-      return await updateClassHandler(request, env, authContext);
-    }
-
-    if (
-      url.pathname.startsWith("/api/classes/") &&
-      url.pathname.endsWith("/archive") &&
-      request.method === "POST"
-    ) {
-      return await archiveClassHandler(request, env, authContext);
-    }
-
-    throw new NotFoundError("API endpoint not found");
-  } catch (error) {
-    if (error instanceof AppError) {
-      return errorResponse(
-        error.code,
-        error.message,
-        error.status,
-      );
-    }
-
-    console.error("Unhandled API error:", error);
-
-    return errorResponse(
-      "INTERNAL_SERVER_ERROR",
-      "An unexpected error occurred",
-      500,
+    const classMatch = pathname.match(
+      /^\/api\/classes\/(\d+)$/,
     );
+
+    if (classMatch) {
+      const classId = Number(classMatch[1]);
+
+      if (method === "GET") {
+        return getClassHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+
+      if (method === "PATCH") {
+        return updateClassHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+    }
+
+    const classFinancesMatch = pathname.match(
+      /^\/api\/classes\/(\d+)\/finances$/,
+    );
+
+    if (classFinancesMatch) {
+      if (method === "GET") {
+        return getFinancesHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+    }
+
+    const classChildrenMatch = pathname.match(
+      /^\/api\/classes\/(\d+)\/children$/,
+    );
+
+    if (classChildrenMatch) {
+      if (method === "GET") {
+        return listChildrenHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+
+      if (method === "POST") {
+        return createChildHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+    }
+
+    const childMatch = pathname.match(
+      /^\/api\/children\/(\d+)$/,
+    );
+
+    if (childMatch) {
+      if (method === "GET") {
+        return getChildHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+
+      if (method === "PATCH") {
+        return updateChildHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+    }
+
+    const classUsersMatch = pathname.match(
+      /^\/api\/classes\/(\d+)\/users$/,
+    );
+
+    if (classUsersMatch) {
+      if (method === "GET") {
+        return listUsersHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+    }
+
+    const userMatch = pathname.match(
+      /^\/api\/users\/(\d+)$/,
+    );
+
+    if (userMatch) {
+      if (method === "GET") {
+        return getUserHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+
+      if (method === "PATCH") {
+        return updateUserHandler(
+          request,
+          env,
+          authContext,
+        );
+      }
+    }
+
+    const chargePayMatch = pathname.match(
+      /^\/api\/charges\/(\d+)\/pay$/,
+    );
+
+    if (
+      chargePayMatch &&
+      method === "POST"
+    ) {
+      return payChargeHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    const classExpensesMatch = pathname.match(
+      /^\/api\/classes\/(\d+)\/expenses$/,
+    );
+
+    if (
+      classExpensesMatch &&
+      method === "POST"
+    ) {
+      return createExpenseHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    const expensePayMatch = pathname.match(
+      /^\/api\/expenses\/(\d+)\/pay$/,
+    );
+
+    if (
+      expensePayMatch &&
+      method === "POST"
+    ) {
+      return payExpenseHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    const expenseCancelMatch = pathname.match(
+      /^\/api\/expenses\/(\d+)\/cancel$/,
+    );
+
+    if (
+      expenseCancelMatch &&
+      method === "POST"
+    ) {
+      return cancelExpenseHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    const classFinancialTransactionsMatch =
+      pathname.match(
+        /^\/api\/classes\/(\d+)\/financial-transactions$/,
+      );
+
+    if (
+      classFinancialTransactionsMatch &&
+      method === "POST"
+    ) {
+      return createFinancialTransactionHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    const financialTransactionPayMatch =
+      pathname.match(
+        /^\/api\/financial-transactions\/(\d+)\/pay$/,
+      );
+
+    if (
+      financialTransactionPayMatch &&
+      method === "POST"
+    ) {
+      return payFinancialTransactionHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    const financialTransactionCancelMatch =
+      pathname.match(
+        /^\/api\/financial-transactions\/(\d+)\/cancel$/,
+      );
+
+    if (
+      financialTransactionCancelMatch &&
+      method === "POST"
+    ) {
+      return cancelFinancialTransactionHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    throw new AppError(
+      404,
+      "NOT_FOUND",
+      "Not found",
+    );
+  } catch (error) {
+    return errorResponse(error);
   }
 }
