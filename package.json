@@ -2,10 +2,12 @@
   "name": "classmoney-2.0",
   "private": true,
   "version": "2.0.0",
+  "type": "module",
   "description": "ClassMoney 2.0 - multi-class administration and class finance platform",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "i18n:manifest": "node scripts/generate-i18n-manifest.mjs",
+    "deploy": "npm run i18n:manifest && wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "^4.140.0"

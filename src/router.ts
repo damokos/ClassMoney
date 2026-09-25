@@ -48,6 +48,10 @@ export async function router(
       return await healthHandler(env);
     }
 
+    if (!url.pathname.startsWith("/api/")) {
+      return await env.ASSETS.fetch(request);
+    }
+
     const authContext = await getAuthContext(env, ctx);
 
     if (
@@ -241,7 +245,11 @@ export async function router(
       url.pathname.endsWith("/archive") &&
       request.method === "POST"
     ) {
-      return await archiveClassHandler(request, env, authContext);
+      return await archiveClassHandler(
+        request,
+        env,
+        authContext,
+      );
     }
 
     throw new NotFoundError("API endpoint not found");
