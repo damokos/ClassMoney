@@ -47,7 +47,7 @@ const hu = {
     administration: "Adminisztráció",
   },
 
-  status: {
+  statusLabels: {
     pending: "Fizetésre vár",
     unpaid: "Fizetésre vár",
     paid: "Rendezve",
@@ -127,6 +127,9 @@ const hu = {
     cancel: "Befizetés érvénytelenítése",
     allChildren: "Minden aktív gyermek",
     childSearch: "Keresés gyermek neve alapján",
+    search: "Keresés gyermek vagy tétel neve alapján",
+    searchPlaceholder:
+      "Gyermek vagy tétel neve...",
     confirmPayment: "Biztosan rendezettnek jelölöd ezt a tételt?",
     confirmCancellation:
       "Biztosan érvényteleníted ezt a befizetési tételt?",
@@ -160,6 +163,8 @@ const hu = {
     transactions: "Pénzügyi tranzakciók",
     transaction: "Pénzügyi tranzakció",
     create: "Pénzügyi tranzakció hozzáadása",
+    createCharge: "Befizetési tétel hozzáadása",
+    createExpense: "Kiadás hozzáadása",
     category: "Kategória",
     description: "Leírás",
     amount: "Összeg",
@@ -167,16 +172,34 @@ const hu = {
     receipt: "Bizonylat",
     markPaid: "Rendezettnek jelölés",
     cancel: "Érvénytelenítés",
+    actions: "Műveletek",
+    confirmMarkPaid:
+      "Biztosan rendezettnek jelölöd ezt a tételt?",
+    confirmCancel:
+      "Biztosan érvényteleníted ezt a tételt?",
     paidAt: "Rendezés időpontja",
     paidBy: "Rendezte",
     cancelledAt: "Érvénytelenítés időpontja",
     cancelledBy: "Érvénytelenítette",
-    includeCancelled: "Érvénytelenített tételek megjelenítése",
+    includeCancelled:
+      "Érvénytelenített tételek megjelenítése",
+    titleLabel: "Megnevezés",
+    dueDate: "Határidő",
+    expenseDate: "Dátum",
+    charges: "Befizetések",
+    expenses: "Kiadások",
+    statusLabels: {
+      pending: "Fizetésre vár",
+      paid: "Rendezve",
+      cancelled: "Érvénytelenítve",
+      unpaid: "Fizetésre vár",
+    },
     categories: {
       other: "Egyéb",
       financialAdjustment: "Pénzügyi korrekció",
     },
   },
+
 
   notifications: {
     title: "Értesítések",

@@ -15,6 +15,16 @@ import {
   getChildren,
   createChild,
   updateChild,
+  getFinances,
+  createCharge,
+  payCharge,
+  cancelCharge,
+  createExpense,
+  payExpense,
+  cancelExpense,
+  createFinancialTransaction,
+  payFinancialTransaction,
+  cancelFinancialTransaction,
 } from "./api.js";
 
 const app = document.getElementById("app");
@@ -23,6 +33,8 @@ let currentUser = null;
 let classesIncludeArchived = false;
 let childrenClassId = null;
 let childrenIncludeInactive = false;
+let financesClassId = null;
+let financesIncludeCancelled = false;
 
 const navigationItems = [
   {
@@ -65,6 +77,7 @@ const navigationItems = [
     visible: (user) =>
       user?.roles?.some(
         (role) =>
+          role.role === "ADMIN" ||
           role.role === "PARENT_REPRESENTATIVE" ||
           role.role === "TREASURER",
       ) ?? false,
@@ -141,7 +154,9 @@ function createElement(tag, options = {}) {
   }
 
   if (options.attributes) {
-    for (const [name, value] of Object.entries(options.attributes)) {
+    for (const [name, value] of Object.entries(
+      options.attributes,
+    )) {
       element.setAttribute(name, value);
     }
   }
@@ -151,7 +166,8 @@ function createElement(tag, options = {}) {
 
 function getCurrentView() {
   const hash = window.location.hash.replace(/^#/, "");
-  const visibleNavigationItems = getVisibleNavigationItems();
+  const visibleNavigationItems =
+    getVisibleNavigationItems();
 
   if (
     visibleNavigationItems.some(
@@ -209,7 +225,9 @@ function createHeader() {
     },
   });
 
-  for (const [code, name] of Object.entries(getLanguages())) {
+  for (const [code, name] of Object.entries(
+    getLanguages(),
+  )) {
     const option = createElement("option", {
       text: name,
       attributes: {
@@ -221,10 +239,13 @@ function createHeader() {
     languageSelect.append(option);
   }
 
-  languageSelect.addEventListener("change", async (event) => {
-    await setLanguage(event.target.value);
-    await render();
-  });
+  languageSelect.addEventListener(
+    "change",
+    async (event) => {
+      await setLanguage(event.target.value);
+      await render();
+    },
+  );
 
   headerActions.append(languageLabel, languageSelect);
   header.append(brand, headerActions);
@@ -344,7 +365,11 @@ function createDashboardView() {
   return dashboard;
 }
 
-function createClassesTable(classes, onEdit, onArchive) {
+function createClassesTable(
+  classes,
+  onEdit,
+  onArchive,
+) {
   const wrapper = createElement("div", {
     className: "table-wrapper",
   });
@@ -448,17 +473,23 @@ function createClassesTable(classes, onEdit, onArchive) {
       actionsCell.append(editButton);
 
       if (classItem.active) {
-        const archiveButton = createElement("button", {
-          className: "button button-danger",
-          text: t("classes.archive"),
-          attributes: {
-            type: "button",
+        const archiveButton = createElement(
+          "button",
+          {
+            className: "button button-danger",
+            text: t("classes.archive"),
+            attributes: {
+              type: "button",
+            },
           },
-        });
+        );
 
-        archiveButton.addEventListener("click", () => {
-          onArchive(classItem);
-        });
+        archiveButton.addEventListener(
+          "click",
+          () => {
+            onArchive(classItem);
+          },
+        );
 
         actionsCell.append(archiveButton);
       }
@@ -475,7 +506,10 @@ function createClassesTable(classes, onEdit, onArchive) {
   return wrapper;
 }
 
-function createClassForm(classItem = null, onSaved = null) {
+function createClassForm(
+  classItem = null,
+  onSaved = null,
+) {
   const form = createElement("form", {
     className: "class-form",
   });
@@ -586,7 +620,9 @@ function createClassForm(classItem = null, onSaved = null) {
       max: "3",
       step: "1",
       required: "required",
-      value: String(classItem?.currencyDecimals ?? 0),
+      value: String(
+        classItem?.currencyDecimals ?? 0,
+      ),
     },
   });
 
@@ -613,7 +649,9 @@ function createClassForm(classItem = null, onSaved = null) {
       type: "text",
       required: "required",
       autocomplete: "off",
-      value: classItem?.timezone ?? "Europe/Budapest",
+      value:
+        classItem?.timezone ??
+        "Europe/Budapest",
     },
   });
 
@@ -622,26 +660,36 @@ function createClassForm(classItem = null, onSaved = null) {
     timezoneInput,
   );
 
-  const bankAccountGroup = createElement("div", {
-    className: "form-group",
-  });
-
-  const bankAccountLabel = createElement("label", {
-    text: t("classes.bankAccountNumber"),
-    attributes: {
-      for: "class-bank-account",
+  const bankAccountGroup = createElement(
+    "div",
+    {
+      className: "form-group",
     },
-  });
+  );
 
-  const bankAccountInput = createElement("input", {
-    attributes: {
-      id: "class-bank-account",
-      name: "bankAccountNumber",
-      type: "text",
-      autocomplete: "off",
-      value: classItem?.bankAccountNumber ?? "",
+  const bankAccountLabel = createElement(
+    "label",
+    {
+      text: t("classes.bankAccountNumber"),
+      attributes: {
+        for: "class-bank-account",
+      },
     },
-  });
+  );
+
+  const bankAccountInput = createElement(
+    "input",
+    {
+      attributes: {
+        id: "class-bank-account",
+        name: "bankAccountNumber",
+        type: "text",
+        autocomplete: "off",
+        value:
+          classItem?.bankAccountNumber ?? "",
+      },
+    },
+  );
 
   bankAccountGroup.append(
     bankAccountLabel,
@@ -660,13 +708,16 @@ function createClassForm(classItem = null, onSaved = null) {
     },
   });
 
-  const cancelButton = createElement("button", {
-    className: "button button-secondary",
-    text: t("common.cancel"),
-    attributes: {
-      type: "button",
+  const cancelButton = createElement(
+    "button",
+    {
+      className: "button button-secondary",
+      text: t("common.cancel"),
+      attributes: {
+        type: "button",
+      },
     },
-  });
+  );
 
   cancelButton.addEventListener("click", () => {
     form.remove();
@@ -688,43 +739,60 @@ function createClassForm(classItem = null, onSaved = null) {
     formActions,
   );
 
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
+  form.addEventListener(
+    "submit",
+    async (event) => {
+      event.preventDefault();
 
-    saveButton.disabled = true;
+      saveButton.disabled = true;
 
-    try {
-      const payload = {
-        displayName: displayNameInput.value.trim(),
-        currency: currencyInput.value.trim().toUpperCase(),
-        currencyDecimals: Number(decimalsInput.value),
-        timezone: timezoneInput.value.trim(),
-        bankAccountNumber:
-          bankAccountInput.value.trim() || null,
-      };
+      try {
+        const payload = {
+          displayName:
+            displayNameInput.value.trim(),
+          currency:
+            currencyInput.value
+              .trim()
+              .toUpperCase(),
+          currencyDecimals:
+            Number(decimalsInput.value),
+          timezone:
+            timezoneInput.value.trim(),
+          bankAccountNumber:
+            bankAccountInput.value.trim() ||
+            null,
+        };
 
-      if (!classItem) {
-        await createClass({
-          code: codeInput.value.trim(),
-          ...payload,
-        });
-      } else {
-        await updateClass(classItem.id, payload);
+        if (!classItem) {
+          await createClass({
+            code: codeInput.value.trim(),
+            ...payload,
+          });
+        } else {
+          await updateClass(
+            classItem.id,
+            payload,
+          );
+        }
+
+        if (onSaved) {
+          await onSaved();
+        }
+      } catch (error) {
+        console.error(
+          "Failed to save class:",
+          error,
+        );
+
+        window.alert(
+          error.message ||
+            t("messages.operationFailed"),
+        );
+
+        saveButton.disabled = false;
       }
-
-      if (onSaved) {
-        await onSaved();
-      }
-    } catch (error) {
-      console.error("Failed to save class:", error);
-
-      window.alert(
-        error.message || t("messages.operationFailed"),
-      );
-
-      saveButton.disabled = false;
-    }
-  });
+    },
+  );
 
   return form;
 }
@@ -757,57 +825,72 @@ async function createClassesView() {
   });
 
   if (isAdmin()) {
-    const createButton = createElement("button", {
-      className: "button button-primary",
-      text: t("classes.create"),
-      attributes: {
-        type: "button",
-      },
-    });
-
-    createButton.addEventListener("click", () => {
-      const existingForm = section.querySelector(
-        ".class-form",
-      );
-
-      if (existingForm) {
-        existingForm.remove();
-        return;
-      }
-
-      const form = createClassForm(
-        null,
-        async () => {
-          await render();
+    const createButton = createElement(
+      "button",
+      {
+        className: "button button-primary",
+        text: t("classes.create"),
+        attributes: {
+          type: "button",
         },
-      );
+      },
+    );
 
-      section.insertBefore(
-        form,
-        content,
-      );
-    });
+    createButton.addEventListener(
+      "click",
+      () => {
+        const existingForm =
+          section.querySelector(
+            ".class-form",
+          );
+
+        if (existingForm) {
+          existingForm.remove();
+          return;
+        }
+
+        const form = createClassForm(
+          null,
+          async () => {
+            await render();
+          },
+        );
+
+        section.insertBefore(
+          form,
+          content,
+        );
+      },
+    );
 
     headerActions.append(createButton);
 
-    const archivedLabel = createElement("label", {
-      className: "checkbox-label",
-    });
-
-    const archivedCheckbox = createElement("input", {
-      attributes: {
-        type: "checkbox",
+    const archivedLabel = createElement(
+      "label",
+      {
+        className: "checkbox-label",
       },
-    });
+    );
 
-    archivedCheckbox.checked = classesIncludeArchived;
+    const archivedCheckbox =
+      createElement("input", {
+        attributes: {
+          type: "checkbox",
+        },
+      });
 
-    archivedCheckbox.addEventListener("change", async () => {
-      classesIncludeArchived =
-        archivedCheckbox.checked;
+    archivedCheckbox.checked =
+      classesIncludeArchived;
 
-      await render();
-    });
+    archivedCheckbox.addEventListener(
+      "change",
+      async () => {
+        classesIncludeArchived =
+          archivedCheckbox.checked;
+
+        await render();
+      },
+    );
 
     archivedLabel.append(
       archivedCheckbox,
@@ -816,10 +899,15 @@ async function createClassesView() {
       }),
     );
 
-    headerActions.append(archivedLabel);
+    headerActions.append(
+      archivedLabel,
+    );
   }
 
-  header.append(headerContent, headerActions);
+  header.append(
+    headerContent,
+    headerActions,
+  );
 
   const content = createElement("div", {
     className: "content-panel",
@@ -839,9 +927,10 @@ async function createClassesView() {
   };
 
   const editClass = (classItem) => {
-    const existingForm = section.querySelector(
-      ".class-form",
-    );
+    const existingForm =
+      section.querySelector(
+        ".class-form",
+      );
 
     if (existingForm) {
       existingForm.remove();
@@ -855,7 +944,9 @@ async function createClassesView() {
     section.insertBefore(form, content);
   };
 
-  const archiveClassItem = async (classItem) => {
+  const archiveClassItem = async (
+    classItem,
+  ) => {
     const confirmed = window.confirm(
       `${t("classes.archive")}: ${classItem.displayName}?`,
     );
@@ -874,17 +965,20 @@ async function createClassesView() {
       );
 
       window.alert(
-        error.message || t("messages.operationFailed"),
+        error.message ||
+          t("messages.operationFailed"),
       );
     }
   };
 
   try {
     const result = await getClasses(
-      isAdmin() && classesIncludeArchived,
+      isAdmin() &&
+        classesIncludeArchived,
     );
 
-    const classes = result?.data?.classes ?? [];
+    const classes =
+      result?.data?.classes ?? [];
 
     description.textContent =
       `${classes.length}`;
@@ -892,7 +986,8 @@ async function createClassesView() {
     if (classes.length === 0) {
       content.replaceChildren(
         createElement("p", {
-          className: "content-panel-message",
+          className:
+            "content-panel-message",
           text: t("common.noData"),
         }),
       );
@@ -916,8 +1011,11 @@ async function createClassesView() {
 
     content.replaceChildren(
       createElement("p", {
-        className: "content-panel-message error",
-        text: t("messages.operationFailed"),
+        className:
+          "content-panel-message error",
+        text: t(
+          "messages.operationFailed",
+        ),
       }),
     );
   }
@@ -985,40 +1083,56 @@ function createChildrenTable(
 
     row.append(statusCell);
 
-    const actionsCell = createElement("td", {
-      className: "table-actions",
-    });
-
-    const editButton = createElement("button", {
-      className: "button button-secondary",
-      text: t("common.edit"),
-      attributes: {
-        type: "button",
+    const actionsCell = createElement(
+      "td",
+      {
+        className: "table-actions",
       },
-    });
+    );
 
-    editButton.addEventListener("click", () => {
-      onEdit(child);
-    });
+    const editButton = createElement(
+      "button",
+      {
+        className:
+          "button button-secondary",
+        text: t("common.edit"),
+        attributes: {
+          type: "button",
+        },
+      },
+    );
+
+    editButton.addEventListener(
+      "click",
+      () => {
+        onEdit(child);
+      },
+    );
 
     actionsCell.append(editButton);
 
     if (isAdmin()) {
-      const toggleButton = createElement("button", {
-        className: child.active
-          ? "button button-danger"
-          : "button button-secondary",
-        text: child.active
-          ? t("children.deactivate")
-          : t("children.activate"),
-        attributes: {
-          type: "button",
+      const toggleButton = createElement(
+        "button",
+        {
+          className: child.active
+            ? "button button-danger"
+            : "button button-secondary",
+          text: child.active
+            ? t("children.deactivate")
+            : t("children.activate"),
+          attributes: {
+            type: "button",
+          },
         },
-      });
+      );
 
-      toggleButton.addEventListener("click", () => {
-        onToggleActive(child);
-      });
+      toggleButton.addEventListener(
+        "click",
+        () => {
+          onToggleActive(child);
+        },
+      );
 
       actionsCell.append(toggleButton);
     }
@@ -1039,7 +1153,8 @@ function createChildForm(
   onSaved = null,
 ) {
   const form = createElement("form", {
-    className: "child-form class-form",
+    className:
+      "child-form class-form",
   });
 
   const title = createElement("h2", {
@@ -1049,29 +1164,767 @@ function createChildForm(
       : t("children.create"),
   });
 
-  const nameGroup = createElement("div", {
+  const nameGroup = createElement(
+    "div",
+    {
+      className: "form-group",
+    },
+  );
+
+  const nameLabel = createElement(
+    "label",
+    {
+      text: t("children.name"),
+      attributes: {
+        for: "child-name",
+      },
+    },
+  );
+
+  const nameInput = createElement(
+    "input",
+    {
+      attributes: {
+        id: "child-name",
+        name: "name",
+        type: "text",
+        required: "required",
+        autocomplete: "off",
+        value: child?.name ?? "",
+      },
+    },
+  );
+
+  nameGroup.append(
+    nameLabel,
+    nameInput,
+  );
+
+  const formActions = createElement(
+    "div",
+    {
+      className: "form-actions",
+    },
+  );
+
+  const saveButton = createElement(
+    "button",
+    {
+      className:
+        "button button-primary",
+      text: t("common.save"),
+      attributes: {
+        type: "submit",
+      },
+    },
+  );
+
+  const cancelButton = createElement(
+    "button",
+    {
+      className:
+        "button button-secondary",
+      text: t("common.cancel"),
+      attributes: {
+        type: "button",
+      },
+    },
+  );
+
+  cancelButton.addEventListener(
+    "click",
+    () => {
+      form.remove();
+    },
+  );
+
+  formActions.append(
+    saveButton,
+    cancelButton,
+  );
+
+  form.append(
+    title,
+    nameGroup,
+    formActions,
+  );
+
+  form.addEventListener(
+    "submit",
+    async (event) => {
+      event.preventDefault();
+
+      saveButton.disabled = true;
+
+      try {
+        if (!child) {
+          await createChild(classId, {
+            name: nameInput.value.trim(),
+          });
+        } else {
+          await updateChild(
+            classId,
+            child.id,
+            {
+              name: nameInput.value.trim(),
+            },
+          );
+        }
+
+        if (onSaved) {
+          await onSaved();
+        }
+      } catch (error) {
+        console.error(
+          "Failed to save child:",
+          error,
+        );
+
+        window.alert(
+          error.message ||
+            t(
+              "messages.operationFailed",
+            ),
+        );
+
+        saveButton.disabled = false;
+      }
+    },
+  );
+
+  return form;
+}
+
+async function createChildrenView() {
+  const section = createElement("section", {
+    className: "content-view",
+  });
+
+  const header = createElement("div", {
+    className:
+      "content-view-header",
+  });
+
+  const headerContent =
+    createElement("div");
+
+  const title = createElement("h1", {
+    className: "page-title",
+    text: t("children.title"),
+  });
+
+  const description = createElement(
+    "p",
+    {
+      className: "page-description",
+      text: t("common.loading"),
+    },
+  );
+
+  headerContent.append(
+    title,
+    description,
+  );
+
+  const headerActions = createElement(
+    "div",
+    {
+      className:
+        "content-view-actions",
+    },
+  );
+
+  const classSelectLabel =
+    createElement("label", {
+      className:
+        "form-inline-label",
+      text: t("classes.title"),
+    });
+
+  const classSelect = createElement(
+    "select",
+    {
+      className: "form-select",
+      attributes: {
+        "aria-label":
+          t("classes.title"),
+      },
+    },
+  );
+
+  headerActions.append(
+    classSelectLabel,
+    classSelect,
+  );
+
+  if (isAdmin()) {
+    const inactiveLabel =
+      createElement("label", {
+        className:
+          "checkbox-label",
+      });
+
+    const inactiveCheckbox =
+      createElement("input", {
+        attributes: {
+          type: "checkbox",
+        },
+      });
+
+    inactiveCheckbox.checked =
+      childrenIncludeInactive;
+
+    inactiveCheckbox.addEventListener(
+      "change",
+      async () => {
+        childrenIncludeInactive =
+          inactiveCheckbox.checked;
+
+        await loadChildren();
+      },
+    );
+
+    inactiveLabel.append(
+      inactiveCheckbox,
+      createElement("span", {
+        text: t(
+          "children.includeInactive",
+        ),
+      }),
+    );
+
+    headerActions.append(
+      inactiveLabel,
+    );
+  }
+
+  const createButton = createElement(
+    "button",
+    {
+      className:
+        "button button-primary",
+      text: t("children.create"),
+      attributes: {
+        type: "button",
+      },
+    },
+  );
+
+  headerActions.append(
+    createButton,
+  );
+
+  header.append(
+    headerContent,
+    headerActions,
+  );
+
+  const content = createElement("div", {
+    className: "content-panel",
+  });
+
+  content.append(
+    createElement("p", {
+      className:
+        "content-panel-message",
+      text: t("common.loading"),
+    }),
+  );
+
+  section.append(
+    header,
+    content,
+  );
+
+  const reload = async () => {
+    await loadChildren();
+  };
+
+  const editChild = (child) => {
+    const existingForm =
+      section.querySelector(
+        ".child-form",
+      );
+
+    if (existingForm) {
+      existingForm.remove();
+    }
+
+    const form = createChildForm(
+      childrenClassId,
+      child,
+      reload,
+    );
+
+    section.insertBefore(
+      form,
+      content,
+    );
+  };
+
+  const toggleChildActive =
+    async (child) => {
+      const action = child.active
+        ? t(
+            "children.deactivate",
+          )
+        : t(
+            "children.activate",
+          );
+
+      const confirmed =
+        window.confirm(
+          `${action}: ${child.name}?`,
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        await updateChild(
+          childrenClassId,
+          child.id,
+          {
+            active: !child.active,
+          },
+        );
+
+        await loadChildren();
+      } catch (error) {
+        console.error(
+          "Failed to change child status:",
+          error,
+        );
+
+        window.alert(
+          error.message ||
+            t(
+              "messages.operationFailed",
+            ),
+        );
+      }
+    };
+
+  const loadChildren =
+    async () => {
+      if (!childrenClassId) {
+        content.replaceChildren(
+          createElement("p", {
+            className:
+              "content-panel-message",
+            text: t(
+              "common.noData",
+            ),
+          }),
+        );
+
+        return;
+      }
+
+      try {
+        const result =
+          await getChildren(
+            childrenClassId,
+            isAdmin() &&
+              childrenIncludeInactive,
+          );
+
+        const children =
+          result?.data?.children ??
+          [];
+
+        description.textContent =
+          `${children.length}`;
+
+        if (children.length === 0) {
+          content.replaceChildren(
+            createElement("p", {
+              className:
+                "content-panel-message",
+              text: t(
+                "common.noData",
+              ),
+            }),
+          );
+
+          return;
+        }
+
+        content.replaceChildren(
+          createChildrenTable(
+            children,
+            editChild,
+            toggleChildActive,
+          ),
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load children:",
+          error,
+        );
+
+        description.textContent =
+          t("errors.network");
+
+        content.replaceChildren(
+          createElement("p", {
+            className:
+              "content-panel-message error",
+            text: t(
+              "messages.operationFailed",
+            ),
+          }),
+        );
+      }
+    };
+
+  try {
+    const result =
+      await getClasses(false);
+
+    const classes =
+      result?.data?.classes ?? [];
+
+    classSelect.replaceChildren();
+
+    for (const classItem of classes) {
+      const option = createElement(
+        "option",
+        {
+          text: `${classItem.code} – ${classItem.displayName}`,
+          attributes: {
+            value: String(
+              classItem.id,
+            ),
+          },
+        },
+      );
+
+      classSelect.append(
+        option,
+      );
+    }
+
+    if (classes.length === 0) {
+      classSelect.disabled =
+        true;
+      createButton.disabled =
+        true;
+
+      description.textContent =
+        t("common.noData");
+
+      content.replaceChildren(
+        createElement("p", {
+          className:
+            "content-panel-message",
+          text: t(
+            "common.noData",
+          ),
+        }),
+      );
+
+      return section;
+    }
+
+    const selectedClassExists =
+      classes.some(
+        (classItem) =>
+          classItem.id ===
+          childrenClassId,
+      );
+
+    if (!selectedClassExists) {
+      childrenClassId =
+        classes[0].id;
+    }
+
+    classSelect.value =
+      String(childrenClassId);
+
+    classSelect.addEventListener(
+      "change",
+      async () => {
+        childrenClassId =
+          Number(
+            classSelect.value,
+          );
+
+        const existingForm =
+          section.querySelector(
+            ".child-form",
+          );
+
+        if (existingForm) {
+          existingForm.remove();
+        }
+
+        await loadChildren();
+      },
+    );
+
+    createButton.addEventListener(
+      "click",
+      () => {
+        const existingForm =
+          section.querySelector(
+            ".child-form",
+          );
+
+        if (existingForm) {
+          existingForm.remove();
+          return;
+        }
+
+        const form =
+          createChildForm(
+            childrenClassId,
+            null,
+            reload,
+          );
+
+        section.insertBefore(
+          form,
+          content,
+        );
+      },
+    );
+
+    await loadChildren();
+  } catch (error) {
+    console.error(
+      "Failed to load classes for children:",
+      error,
+    );
+
+    classSelect.disabled =
+      true;
+    createButton.disabled =
+      true;
+
+    description.textContent =
+      t("errors.network");
+
+    content.replaceChildren(
+      createElement("p", {
+        className:
+          "content-panel-message error",
+        text: t(
+          "messages.operationFailed",
+        ),
+      }),
+    );
+  }
+
+  return section;
+}
+
+function createFinanceSectionTitle(
+  titleKey,
+  count,
+  actionButton = null,
+) {
+  const wrapper = createElement("div", {
+    className: "finance-section-header",
+  });
+
+  const heading = createElement("div", {
+    className: "finance-section-heading",
+  });
+
+  heading.append(
+    createElement("h2", {
+      className: "section-title",
+      text: t(titleKey),
+    }),
+    createElement("span", {
+      className: "section-count",
+      text: String(count),
+    }),
+  );
+
+  wrapper.append(heading);
+
+  if (actionButton) {
+    wrapper.append(actionButton);
+  }
+
+  return wrapper;
+}
+
+function createFinanceTable(
+  columns,
+  rows,
+  emptyText,
+) {
+  if (rows.length === 0) {
+    return createElement("p", {
+      className:
+        "content-panel-message",
+      text: emptyText,
+    });
+  }
+
+  const wrapper = createElement("div", {
+    className: "table-wrapper",
+  });
+
+  const table = createElement("table", {
+    className: "data-table",
+  });
+
+  const thead = createElement("thead");
+  const headerRow = createElement("tr");
+
+  for (const column of columns) {
+    headerRow.append(
+      createElement("th", {
+        text: t(column.label),
+      }),
+    );
+  }
+
+  thead.append(headerRow);
+
+  const tbody = createElement("tbody");
+
+  for (const row of rows) {
+    const tr = createElement("tr");
+
+    for (const column of columns) {
+      const cell = createElement("td", {
+        className:
+          column.className ?? "",
+      });
+
+      const rendered = column.render(row);
+
+      if (rendered instanceof Node) {
+        cell.append(rendered);
+      } else {
+        cell.textContent = rendered;
+      }
+
+      tr.append(cell);
+    }
+
+    tbody.append(tr);
+  }
+
+  table.append(thead, tbody);
+  wrapper.append(table);
+
+  return wrapper;
+}
+
+function getFinancialStatusTranslationKey(
+  status,
+) {
+  return {
+    PENDING: "financial.statusLabels.pending",
+    PAID: "financial.statusLabels.paid",
+    CANCELLED:
+      "financial.statusLabels.cancelled",
+    UNPAID: "financial.statusLabels.unpaid",
+  }[status];
+}
+
+function createFinanceStatusBadge(
+  status,
+) {
+  const translationKey =
+    getFinancialStatusTranslationKey(
+      status,
+    );
+
+  return createElement("span", {
+    className: `status-badge status-${status.toLowerCase()}`,
+    text: translationKey
+      ? t(translationKey)
+      : status,
+  });
+}
+
+function hasClassRole(classId, roleName) {
+  return (
+    currentUser?.roles?.some(
+      (role) =>
+        role.role === roleName &&
+        Number(role.classId) === Number(classId),
+    ) ?? false
+  );
+}
+
+function canOperateClassFinances(classId) {
+  return (
+    hasClassRole(
+      classId,
+      "PARENT_REPRESENTATIVE",
+    ) ||
+    hasClassRole(classId, "TREASURER")
+  );
+}
+
+function canPayClassFinances(classId) {
+  return hasClassRole(classId, "TREASURER");
+}
+
+function parseMoneyInput(value, decimals) {
+  const normalized = String(value)
+    .trim()
+    .replace(/\s/g, "")
+    .replace(",", ".");
+
+  if (!normalized) {
+    return null;
+  }
+
+  const number = Number(normalized);
+
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+
+  const multiplier = 10 ** decimals;
+  const amount = Math.round(number * multiplier);
+
+  if (amount <= 0) {
+    return null;
+  }
+
+  return amount;
+}
+
+function createFinanceField(
+  labelKey,
+  input,
+) {
+  const group = createElement("div", {
     className: "form-group",
   });
 
-  const nameLabel = createElement("label", {
-    text: t("children.name"),
-    attributes: {
-      for: "child-name",
-    },
+  const label = createElement("label", {
+    text: t(labelKey),
   });
 
-  const nameInput = createElement("input", {
-    attributes: {
-      id: "child-name",
-      name: "name",
-      type: "text",
-      required: "required",
-      autocomplete: "off",
-      value: child?.name ?? "",
-    },
+  group.append(label, input);
+  return group;
+}
+
+function createFinanceFormShell(
+  titleKey,
+  onSubmit,
+  onCancel,
+) {
+  const form = createElement("form", {
+    className: "class-form finance-form",
   });
 
-  nameGroup.append(nameLabel, nameInput);
+  const title = createElement("h2", {
+    className: "form-title",
+    text: t(titleKey),
+  });
 
   const formActions = createElement("div", {
     className: "form-actions",
@@ -1093,44 +1946,29 @@ function createChildForm(
     },
   });
 
-  cancelButton.addEventListener("click", () => {
-    form.remove();
-  });
-
-  formActions.append(saveButton, cancelButton);
-
-  form.append(
-    title,
-    nameGroup,
-    formActions,
+  cancelButton.addEventListener(
+    "click",
+    onCancel,
   );
+
+  formActions.append(
+    saveButton,
+    cancelButton,
+  );
+
+  form.append(title, formActions);
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     saveButton.disabled = true;
+    cancelButton.disabled = true;
 
     try {
-      if (!child) {
-        await createChild(classId, {
-          name: nameInput.value.trim(),
-        });
-      } else {
-        await updateChild(
-          classId,
-          child.id,
-          {
-            name: nameInput.value.trim(),
-          },
-        );
-      }
-
-      if (onSaved) {
-        await onSaved();
-      }
+      await onSubmit();
     } catch (error) {
       console.error(
-        "Failed to save child:",
+        "Failed to save financial item:",
         error,
       );
 
@@ -1140,99 +1978,637 @@ function createChildForm(
       );
 
       saveButton.disabled = false;
+      cancelButton.disabled = false;
     }
   });
+
+  return {
+    form,
+    saveButton,
+  };
+}
+
+function createChargeForm(
+  classId,
+  children,
+  onSaved,
+  onCancel,
+) {
+  const childSelect = createElement("select", {
+    className: "form-select",
+    attributes: {
+      required: "required",
+    },
+  });
+
+  childSelect.append(
+    createElement("option", {
+      text: `${t("charges.allChildren")} (${children.length})`,
+      attributes: {
+        value: "all",
+      },
+    }),
+  );
+
+  for (const child of children) {
+    childSelect.append(
+      createElement("option", {
+        text: child.name,
+        attributes: {
+          value: String(child.id),
+        },
+      }),
+    );
+  }
+
+  const titleInput = createElement("input", {
+    attributes: {
+      type: "text",
+      required: "required",
+      autocomplete: "off",
+    },
+  });
+
+  const amountInput = createElement("input", {
+    attributes: {
+      type: "number",
+      required: "required",
+      min: "0.01",
+      step: "0.01",
+      inputmode: "decimal",
+    },
+  });
+
+  const dueDateInput = createElement("input", {
+    attributes: {
+      type: "date",
+      required: "required",
+    },
+  });
+
+  const { form } = createFinanceFormShell(
+    "financial.createCharge",
+    async () => {
+      const classItem = await getClassForFinanceForm(
+        classId,
+      );
+
+      const amount = parseMoneyInput(
+        amountInput.value,
+        classItem.currencyDecimals,
+      );
+
+      if (amount === null) {
+        throw new Error(
+          t("errors.validation"),
+        );
+      }
+
+      const selectedChildId =
+        childSelect.value;
+
+      const targetChildren =
+        selectedChildId === "all"
+          ? children
+          : children.filter(
+              (child) =>
+                String(child.id) ===
+                selectedChildId,
+            );
+
+      if (targetChildren.length === 0) {
+        throw new Error(
+          t("errors.validation"),
+        );
+      }
+
+      for (const child of targetChildren) {
+        await createCharge(classId, {
+          childId: child.id,
+          title: titleInput.value.trim(),
+          amount,
+          dueDate: dueDateInput.value,
+        });
+      }
+
+      await onSaved();
+    },
+    onCancel,
+  );
+
+  form.insertBefore(
+    createFinanceField(
+      "children.title",
+      childSelect,
+    ),
+    form.children[1],
+  );
+
+  form.insertBefore(
+    createFinanceField(
+      "financial.titleLabel",
+      titleInput,
+    ),
+    form.children[2],
+  );
+
+  form.insertBefore(
+    createFinanceField(
+      "financial.amount",
+      amountInput,
+    ),
+    form.children[3],
+  );
+
+  form.insertBefore(
+    createFinanceField(
+      "financial.dueDate",
+      dueDateInput,
+    ),
+    form.children[4],
+  );
 
   return form;
 }
 
-async function createChildrenView() {
-  const section = createElement("section", {
-    className: "content-view",
-  });
-
-  const header = createElement("div", {
-    className: "content-view-header",
-  });
-
-  const headerContent = createElement("div");
-
-  const title = createElement("h1", {
-    className: "page-title",
-    text: t("children.title"),
-  });
-
-  const description = createElement("p", {
-    className: "page-description",
-    text: t("common.loading"),
-  });
-
-  headerContent.append(title, description);
-
-  const headerActions = createElement("div", {
-    className: "content-view-actions",
-  });
-
-  const classSelectLabel = createElement("label", {
-    className: "form-inline-label",
-    text: t("classes.title"),
-  });
-
-  const classSelect = createElement("select", {
-    className: "form-select",
+function createExpenseForm(
+  classId,
+  classItem,
+  onSaved,
+  onCancel,
+) {
+  const dateInput = createElement("input", {
     attributes: {
-      "aria-label": t("classes.title"),
+      type: "date",
+      required: "required",
+      value: new Date()
+        .toISOString()
+        .slice(0, 10),
     },
   });
 
-  headerActions.append(
-    classSelectLabel,
-    classSelect,
+  const titleInput = createElement("input", {
+    attributes: {
+      type: "text",
+      required: "required",
+      autocomplete: "off",
+    },
+  });
+
+  const categoryInput = createElement("input", {
+    attributes: {
+      type: "text",
+      required: "required",
+      autocomplete: "off",
+    },
+  });
+
+  const amountInput = createElement("input", {
+    attributes: {
+      type: "number",
+      required: "required",
+      min: "0.01",
+      step: "0.01",
+      inputmode: "decimal",
+    },
+  });
+
+  const { form } = createFinanceFormShell(
+    "financial.createExpense",
+    async () => {
+      const amount = parseMoneyInput(
+        amountInput.value,
+        classItem.currencyDecimals,
+      );
+
+      if (amount === null) {
+        throw new Error(
+          t("errors.validation"),
+        );
+      }
+
+      await createExpense(classId, {
+        expenseDate: dateInput.value,
+        title: titleInput.value.trim(),
+        category: categoryInput.value.trim(),
+        amount,
+        receiptKey: null,
+        receiptMimeType: null,
+      });
+
+      await onSaved();
+    },
+    onCancel,
   );
 
-  if (isAdmin()) {
-    const inactiveLabel = createElement("label", {
-      className: "checkbox-label",
-    });
+  form.insertBefore(
+    createFinanceField(
+      "financial.expenseDate",
+      dateInput,
+    ),
+    form.children[1],
+  );
 
-    const inactiveCheckbox = createElement("input", {
-      attributes: {
-        type: "checkbox",
-      },
-    });
+  form.insertBefore(
+    createFinanceField(
+      "financial.titleLabel",
+      titleInput,
+    ),
+    form.children[2],
+  );
 
-    inactiveCheckbox.checked =
-      childrenIncludeInactive;
+  form.insertBefore(
+    createFinanceField(
+      "financial.category",
+      categoryInput,
+    ),
+    form.children[3],
+  );
 
-    inactiveCheckbox.addEventListener(
-      "change",
-      async () => {
-        childrenIncludeInactive =
-          inactiveCheckbox.checked;
+  form.insertBefore(
+    createFinanceField(
+      "financial.amount",
+      amountInput,
+    ),
+    form.children[4],
+  );
 
-        await loadChildren();
-      },
-    );
+  return form;
+}
 
-    inactiveLabel.append(
-      inactiveCheckbox,
-      createElement("span", {
-        text: t("children.includeInactive"),
+function createFinancialTransactionForm(
+  classId,
+  classItem,
+  onSaved,
+  onCancel,
+) {
+  const categorySelect = createElement("select", {
+    className: "form-select",
+    attributes: {
+      required: "required",
+    },
+  });
+
+  const categories = [
+    {
+      id: 1,
+      code: "OTHER",
+      nameKey: "financial.categories.other",
+      allowsSignedAmount: false,
+    },
+    {
+      id: 2,
+      code: "FINANCIAL_ADJUSTMENT",
+      nameKey:
+        "financial.categories.financialAdjustment",
+      allowsSignedAmount: true,
+    },
+  ];
+
+  for (const category of categories) {
+    categorySelect.append(
+      createElement("option", {
+        text: t(category.nameKey),
+        attributes: {
+          value: String(category.id),
+        },
       }),
     );
-
-    headerActions.append(inactiveLabel);
   }
 
-  const createButton = createElement("button", {
-    className: "button button-primary",
-    text: t("children.create"),
+  const descriptionInput = createElement("input", {
+    attributes: {
+      type: "text",
+      required: "required",
+      autocomplete: "off",
+    },
+  });
+
+  const amountInput = createElement("input", {
+    attributes: {
+      type: "number",
+      required: "required",
+      step: "0.01",
+      inputmode: "decimal",
+    },
+  });
+
+  const updateAmountConstraints = () => {
+    const category = categories.find(
+      (item) =>
+        item.id === Number(categorySelect.value),
+    );
+
+    if (category?.allowsSignedAmount) {
+      amountInput.min =
+        `-${10 ** -classItem.currencyDecimals}`;
+    } else {
+      amountInput.min = "0.01";
+    }
+  };
+
+  categorySelect.addEventListener(
+    "change",
+    updateAmountConstraints,
+  );
+
+  updateAmountConstraints();
+
+  const { form } = createFinanceFormShell(
+    "financial.create",
+    async () => {
+      const category = categories.find(
+        (item) =>
+          item.id === Number(categorySelect.value),
+      );
+
+      const rawAmount = String(amountInput.value)
+        .trim()
+        .replace(/\s/g, "")
+        .replace(",", ".");
+
+      const number = Number(rawAmount);
+
+      if (
+        !Number.isFinite(number) ||
+        number === 0 ||
+        (!category?.allowsSignedAmount &&
+          number <= 0)
+      ) {
+        throw new Error(
+          t("errors.validation"),
+        );
+      }
+
+      const amount = Math.round(
+        number *
+          10 ** classItem.currencyDecimals,
+      );
+
+      if (amount === 0) {
+        throw new Error(
+          t("errors.validation"),
+        );
+      }
+
+      await createFinancialTransaction(
+        classId,
+        {
+          categoryId: Number(
+            categorySelect.value,
+          ),
+          description:
+            descriptionInput.value.trim(),
+          amount,
+          receiptKey: null,
+          receiptMimeType: null,
+        },
+      );
+
+      await onSaved();
+    },
+    onCancel,
+  );
+
+  form.insertBefore(
+    createFinanceField(
+      "financial.category",
+      categorySelect,
+    ),
+    form.children[1],
+  );
+
+  form.insertBefore(
+    createFinanceField(
+      "financial.description",
+      descriptionInput,
+    ),
+    form.children[2],
+  );
+
+  form.insertBefore(
+    createFinanceField(
+      "financial.amount",
+      amountInput,
+    ),
+    form.children[3],
+  );
+
+  return form;
+}
+
+async function getClassForFinanceForm(classId) {
+  const result = await getClasses(false);
+  const classItem =
+    result?.data?.classes?.find(
+      (item) => Number(item.id) === Number(classId),
+    );
+
+  if (!classItem) {
+    throw new Error(t("errors.notFound"));
+  }
+
+  return classItem;
+}
+
+function createFinanceActionButton(
+  labelKey,
+  onClick,
+  className = "button button-primary",
+) {
+  const button = createElement("button", {
+    className,
+    text: t(labelKey),
     attributes: {
       type: "button",
     },
   });
 
-  headerActions.append(createButton);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function createFinanceRowActions(
+  item,
+  type,
+  canOperate,
+  canPay,
+  onReload,
+) {
+  const actions = createElement("div", {
+    className: "table-actions",
+  });
+
+  if (
+    canPay &&
+    (item.status === "PENDING" ||
+      item.status === "UNPAID")
+  ) {
+    actions.append(
+      createFinanceActionButton(
+        "financial.markPaid",
+        async () => {
+          if (!window.confirm(t("financial.confirmMarkPaid"))) {
+            return;
+          }
+
+          try {
+            if (type === "charge") {
+              await payCharge(item.id);
+            } else if (type === "expense") {
+              await payExpense(item.id);
+            } else {
+              await payFinancialTransaction(item.id);
+            }
+
+            await onReload();
+          } catch (error) {
+            console.error(
+              "Failed to mark financial item paid:",
+              error,
+            );
+            window.alert(
+              error.message ||
+                t("messages.operationFailed"),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  if (
+    canOperate &&
+    (item.status === "PENDING" ||
+      item.status === "UNPAID")
+  ) {
+    actions.append(
+      createFinanceActionButton(
+        "financial.cancel",
+        async () => {
+          if (!window.confirm(t("financial.confirmCancel"))) {
+            return;
+          }
+
+          try {
+              if (type === "charge") {
+                await cancelCharge(item.id);
+              } else if (type === "expense") {
+                await cancelExpense(item.id);
+              } else if (type === "financialTransaction") {
+                await cancelFinancialTransaction(
+                  item.id,
+                );
+              }
+                await onReload();
+          } catch (error) {
+            console.error(
+              "Failed to cancel financial item:",
+              error,
+            );
+            window.alert(
+              error.message ||
+                t("messages.operationFailed"),
+            );
+          }
+        },
+        "button button-danger",
+      ),
+    );
+  }
+
+  return actions.childNodes.length > 0
+    ? actions
+    : "—";
+}
+
+async function createFinancesView() {
+  const section = createElement("section", {
+    className: "content-view",
+  });
+
+  const header = createElement("div", {
+    className:
+      "content-view-header",
+  });
+
+  const headerContent =
+    createElement("div");
+
+  const title = createElement("h1", {
+    className: "page-title",
+    text: t("financial.title"),
+  });
+
+  const description = createElement(
+    "p",
+    {
+      className: "page-description",
+      text: t("common.loading"),
+    },
+  );
+
+  headerContent.append(
+    title,
+    description,
+  );
+
+  const headerActions = createElement(
+    "div",
+    {
+      className:
+        "content-view-actions",
+    },
+  );
+
+  const classSelectLabel =
+    createElement("label", {
+      className:
+        "form-inline-label",
+      text: t("classes.title"),
+    });
+
+  const classSelect = createElement(
+    "select",
+    {
+      className: "form-select",
+      attributes: {
+        "aria-label":
+          t("classes.title"),
+      },
+    },
+  );
+
+  const cancelledLabel =
+    createElement("label", {
+      className:
+        "checkbox-label",
+    });
+
+  const cancelledCheckbox =
+    createElement("input", {
+      attributes: {
+        type: "checkbox",
+      },
+    });
+
+  cancelledCheckbox.checked =
+    financesIncludeCancelled;
+
+  cancelledLabel.append(
+    cancelledCheckbox,
+    createElement("span", {
+      text: t(
+        "financial.includeCancelled",
+      ),
+    }),
+  );
+
+  headerActions.append(
+    classSelectLabel,
+    classSelect,
+    cancelledLabel,
+  );
 
   header.append(
     headerContent,
@@ -1245,235 +2621,694 @@ async function createChildrenView() {
 
   content.append(
     createElement("p", {
-      className: "content-panel-message",
+      className:
+        "content-panel-message",
       text: t("common.loading"),
     }),
   );
 
-  section.append(header, content);
+  section.append(
+    header,
+    content,
+  );
 
-  const reload = async () => {
-    await loadChildren();
-  };
+  let currentClass = null;
+  let currentChildren = [];
+  let chargeSearchQuery = "";
 
-  const editChild = (child) => {
-    const existingForm = section.querySelector(
-      ".child-form",
-    );
+  const showForm = (form) => {
+    const existingForm =
+      section.querySelector(".finance-form");
 
     if (existingForm) {
       existingForm.remove();
     }
 
-    const form = createChildForm(
-      childrenClassId,
-      child,
-      reload,
-    );
-
     section.insertBefore(form, content);
+    form.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
-  const toggleChildActive = async (child) => {
-    const action = child.active
-      ? t("children.deactivate")
-      : t("children.activate");
-
-    const confirmed = window.confirm(
-      `${action}: ${child.name}?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await updateChild(
-        childrenClassId,
-        child.id,
-        {
-          active: !child.active,
-        },
-      );
-
-      await loadChildren();
-    } catch (error) {
-      console.error(
-        "Failed to change child status:",
-        error,
-      );
-
-      window.alert(
-        error.message ||
-          t("messages.operationFailed"),
-      );
-    }
-  };
-
-  const loadChildren = async () => {
-    if (!childrenClassId) {
-      content.replaceChildren(
-        createElement("p", {
-          className: "content-panel-message",
-          text: t("common.noData"),
-        }),
-      );
-
-      return;
-    }
-
-    try {
-      const result = await getChildren(
-        childrenClassId,
-        isAdmin() && childrenIncludeInactive,
-      );
-
-      const children =
-        result?.data?.children ?? [];
-
-      description.textContent =
-        `${children.length}`;
-
-      if (children.length === 0) {
+  const loadFinances =
+    async () => {
+      if (!financesClassId) {
         content.replaceChildren(
           createElement("p", {
-            className: "content-panel-message",
-            text: t("common.noData"),
+            className:
+              "content-panel-message",
+            text: t(
+              "common.noData",
+            ),
           }),
         );
 
         return;
       }
 
-      content.replaceChildren(
-        createChildrenTable(
-          children,
-          editChild,
-          toggleChildActive,
-        ),
-      );
-    } catch (error) {
-      console.error(
-        "Failed to load children:",
-        error,
-      );
+      try {
+        const result =
+          await getFinances(
+            financesClassId,
+            financesIncludeCancelled,
+          );
 
-      description.textContent =
-        t("errors.network");
+        const data =
+          result?.data;
 
-      content.replaceChildren(
-        createElement("p", {
-          className: "content-panel-message error",
-          text: t("messages.operationFailed"),
-        }),
-      );
-    }
-  };
+        if (!data?.class) {
+          throw new Error(
+            "Financial data is unavailable.",
+          );
+        }
+
+        currentClass = data.class;
+
+        const childrenResult =
+          await getChildren(
+            financesClassId,
+            false,
+          );
+
+        currentChildren =
+          childrenResult?.data?.children ?? [];
+
+        const charges =
+          data.charges ?? [];
+
+        const expenses =
+          data.expenses ?? [];
+
+        const financialTransactions =
+          data.financialTransactions ??
+          [];
+
+        description.textContent =
+          `${currentClass.code} – ${currentClass.displayName}`;
+
+        const balanceCard =
+          createElement("article", {
+            className:
+              "dashboard-card",
+          });
+
+        balanceCard.append(
+          createElement("h2", {
+            className:
+              "dashboard-card-title",
+            text: t(
+              "dashboard.balance",
+            ),
+          }),
+          createElement("div", {
+            className:
+              "dashboard-card-value",
+            text: formatMoney(
+              currentClass.balance,
+              currentClass.currency,
+              currentClass.currencyDecimals,
+            ),
+          }),
+        );
+
+        const summary =
+          createElement("div", {
+            className:
+              "dashboard-cards",
+          });
+
+        summary.append(balanceCard);
+
+        const canOperate =
+          canOperateClassFinances(
+            financesClassId,
+          );
+        const canPay =
+          canPayClassFinances(
+            financesClassId,
+          );
+
+        const createChargeButton =
+          canOperate && currentChildren.length > 0
+            ? createFinanceActionButton(
+                "financial.createCharge",
+                () => {
+                  showForm(
+                    createChargeForm(
+                      financesClassId,
+                      currentChildren,
+                      async () => {
+                        await loadFinances();
+                        section
+                          .querySelector(
+                            ".finance-form",
+                          )
+                          ?.remove();
+                      },
+                      () => {
+                        section
+                          .querySelector(
+                            ".finance-form",
+                          )
+                          ?.remove();
+                      },
+                    ),
+                  );
+                },
+              )
+            : null;
+
+        const createExpenseButton =
+          canOperate
+            ? createFinanceActionButton(
+                "financial.createExpense",
+                () => {
+                  showForm(
+                    createExpenseForm(
+                      financesClassId,
+                      currentClass,
+                      async () => {
+                        await loadFinances();
+                        section
+                          .querySelector(
+                            ".finance-form",
+                          )
+                          ?.remove();
+                      },
+                      () => {
+                        section
+                          .querySelector(
+                            ".finance-form",
+                          )
+                          ?.remove();
+                      },
+                    ),
+                  );
+                },
+              )
+            : null;
+
+        const createTransactionButton =
+          canPay
+            ? createFinanceActionButton(
+                "financial.create",
+                () => {
+                  showForm(
+                    createFinancialTransactionForm(
+                      financesClassId,
+                      currentClass,
+                      async () => {
+                        await loadFinances();
+                        section
+                          .querySelector(
+                            ".finance-form",
+                          )
+                          ?.remove();
+                      },
+                      () => {
+                        section
+                          .querySelector(
+                            ".finance-form",
+                          )
+                          ?.remove();
+                      },
+                    ),
+                  );
+                },
+              )
+            : null;
+
+        const chargesSection =
+          createElement("section", {
+            className:
+              "finance-section",
+          });
+
+        const childrenById = new Map(
+          currentChildren.map((child) => [
+            child.id,
+            child.name,
+          ]),
+        );
+
+        const normalizeChargeSearchText = (
+          value,
+        ) =>
+          String(value ?? "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLocaleLowerCase(
+              getLanguage(),
+            );
+
+        const sortedCharges = [
+          ...charges,
+        ].sort((a, b) => {
+          const childA =
+            childrenById.get(a.childId) ?? "";
+          const childB =
+            childrenById.get(b.childId) ?? "";
+
+          const childCompare =
+            normalizeChargeSearchText(
+              childA,
+            ).localeCompare(
+              normalizeChargeSearchText(
+                childB,
+              ),
+              getLanguage(),
+            );
+
+          if (childCompare !== 0) {
+            return childCompare;
+          }
+
+          return normalizeChargeSearchText(
+            a.title,
+          ).localeCompare(
+            normalizeChargeSearchText(
+              b.title,
+            ),
+            getLanguage(),
+          );
+        });
+
+        const chargeSearchGroup =
+          createElement("div", {
+            className: "form-group",
+          });
+
+        const chargeSearchLabel =
+          createElement("label", {
+            text: t("charges.search"),
+            attributes: {
+              for: "charges-search",
+            },
+          });
+
+        const chargeSearchInput =
+          createElement("input", {
+            attributes: {
+              id: "charges-search",
+              type: "search",
+              autocomplete: "off",
+              placeholder: t(
+                "charges.searchPlaceholder",
+              ),
+              value: chargeSearchQuery,
+            },
+          });
+
+        chargeSearchGroup.append(
+          chargeSearchLabel,
+          chargeSearchInput,
+        );
+
+        const chargesTableContainer =
+          createElement("div");
+
+        const renderChargesTable = () => {
+          const query =
+            normalizeChargeSearchText(
+              chargeSearchInput.value,
+            );
+
+          const visibleCharges =
+            query
+              ? sortedCharges.filter(
+                  (charge) => {
+                    const childName =
+                      childrenById.get(
+                        charge.childId,
+                      ) ?? "";
+
+                    return (
+                      normalizeChargeSearchText(
+                        childName,
+                      ).includes(query) ||
+                      normalizeChargeSearchText(
+                        charge.title,
+                      ).includes(query)
+                    );
+                  },
+                )
+              : sortedCharges;
+
+          chargesTableContainer.replaceChildren(
+            createFinanceTable(
+              [
+                {
+                  label:
+                    "charges.child",
+                  render: (item) =>
+                    childrenById.get(
+                      item.childId,
+                    ) ?? "—",
+                },
+                {
+                  label:
+                    "financial.titleLabel",
+                  render: (item) =>
+                    item.title,
+                },
+                {
+                  label:
+                    "financial.amount",
+                  className: "amount",
+                  render: (item) =>
+                    formatMoney(
+                      item.amount,
+                      currentClass.currency,
+                      currentClass.currencyDecimals,
+                    ),
+                },
+                {
+                  label:
+                    "financial.dueDate",
+                  render: (item) =>
+                    item.dueDate,
+                },
+                {
+                  label:
+                    "financial.status",
+                  render: (item) =>
+                    createFinanceStatusBadge(
+                      item.status,
+                    ),
+                },
+                {
+                  label:
+                    "financial.actions",
+                  className:
+                    "table-actions",
+                  render: (item) =>
+                    createFinanceRowActions(
+                      item,
+                      "charge",
+                      canOperate,
+                      canPay,
+                      loadFinances,
+                    ),
+                },
+              ],
+              visibleCharges,
+              t("common.noData"),
+            ),
+          );
+        };
+
+        chargeSearchInput.addEventListener(
+          "input",
+          () => {
+            chargeSearchQuery =
+              chargeSearchInput.value;
+
+            renderChargesTable();
+          },
+        );
+
+        renderChargesTable();
+
+        chargesSection.append(
+          createFinanceSectionTitle(
+            "financial.charges",
+            charges.length,
+            createChargeButton,
+          ),
+          chargeSearchGroup,
+          chargesTableContainer,
+        );
+
+        const expensesSection =
+          createElement("section", {
+            className:
+              "finance-section",
+          });
+
+        expensesSection.append(
+          createFinanceSectionTitle(
+            "financial.expenses",
+            expenses.length,
+            createExpenseButton,
+          ),
+          createFinanceTable(
+            [
+              {
+                label:
+                  "financial.titleLabel",
+                render: (item) =>
+                  item.title,
+              },
+              {
+                label:
+                  "financial.category",
+                render: (item) =>
+                  item.category || "—",
+              },
+              {
+                label:
+                  "financial.amount",
+                className: "amount",
+                render: (item) =>
+                  formatMoney(
+                    item.amount,
+                    currentClass.currency,
+                    currentClass.currencyDecimals,
+                  ),
+              },
+              {
+                label:
+                  "financial.expenseDate",
+                render: (item) =>
+                  item.expenseDate,
+              },
+              {
+                label:
+                  "financial.status",
+                render: (item) =>
+                  createFinanceStatusBadge(
+                    item.status,
+                  ),
+              },
+              {
+                label: "financial.actions",
+                className: "table-actions",
+                render: (item) =>
+                  createFinanceRowActions(
+                    item,
+                    "expense",
+                    canOperate,
+                    canPay,
+                    loadFinances,
+                  ),
+              },
+            ],
+            expenses,
+            t("common.noData"),
+          ),
+        );
+
+        const transactionsSection =
+          createElement(
+            "section",
+            {
+              className:
+                "finance-section",
+            },
+          );
+
+        transactionsSection.append(
+          createFinanceSectionTitle(
+            "financial.transactions",
+            financialTransactions.length,
+            createTransactionButton,
+          ),
+          createFinanceTable(
+            [
+              {
+                label:
+                  "financial.category",
+                render: (item) =>
+                  item.categoryName ||
+                  item.categoryCode ||
+                  "—",
+              },
+              {
+                label:
+                  "financial.description",
+                render: (item) =>
+                  item.description ||
+                  "—",
+              },
+              {
+                label:
+                  "financial.amount",
+                className: "amount",
+                render: (item) =>
+                  formatMoney(
+                    item.amount,
+                    currentClass.currency,
+                    currentClass.currencyDecimals,
+                  ),
+              },
+              {
+                label:
+                  "financial.status",
+                render: (item) =>
+                  createFinanceStatusBadge(
+                    item.status,
+                  ),
+              },
+              {
+                label: "financial.actions",
+                className: "table-actions",
+                render: (item) =>
+                  createFinanceRowActions(
+                    item,
+                    "financialTransaction",
+                    canOperate,
+                    canPay,
+                    loadFinances,
+                  ),
+              },
+            ],
+            financialTransactions,
+            t("common.noData"),
+          ),
+        );
+
+        content.replaceChildren(
+          summary,
+          chargesSection,
+          expensesSection,
+          transactionsSection,
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load finances:",
+          error,
+        );
+
+        description.textContent =
+          t("errors.network");
+
+        content.replaceChildren(
+          createElement("p", {
+            className:
+              "content-panel-message error",
+            text: t(
+              "messages.operationFailed",
+            ),
+          }),
+        );
+      }
+    };
+
+  cancelledCheckbox.addEventListener(
+    "change",
+    async () => {
+      financesIncludeCancelled =
+        cancelledCheckbox.checked;
+
+      await loadFinances();
+    },
+  );
 
   try {
-    const result = await getClasses(false);
+    const result =
+      await getClasses(false);
 
-    const classes = result?.data?.classes ?? [];
+    const classes =
+      result?.data?.classes ?? [];
 
     classSelect.replaceChildren();
 
     for (const classItem of classes) {
-      const option = createElement("option", {
-        text: `${classItem.code} – ${classItem.displayName}`,
-        attributes: {
-          value: String(classItem.id),
+      const option = createElement(
+        "option",
+        {
+          text: `${classItem.code} – ${classItem.displayName}`,
+          attributes: {
+            value: String(
+              classItem.id,
+            ),
+          },
         },
-      });
+      );
 
-      classSelect.append(option);
+      classSelect.append(
+        option,
+      );
     }
 
     if (classes.length === 0) {
-      classSelect.disabled = true;
-      createButton.disabled = true;
+      classSelect.disabled =
+        true;
 
       description.textContent =
         t("common.noData");
 
       content.replaceChildren(
         createElement("p", {
-          className: "content-panel-message",
-          text: t("common.noData"),
+          className:
+            "content-panel-message",
+          text: t(
+            "common.noData",
+          ),
         }),
       );
 
       return section;
     }
 
-    const selectedClassExists = classes.some(
-      (classItem) =>
-        classItem.id === childrenClassId,
-    );
+    const selectedClassExists =
+      classes.some(
+        (classItem) =>
+          classItem.id ===
+          financesClassId,
+      );
 
     if (!selectedClassExists) {
-      childrenClassId = classes[0].id;
+      financesClassId =
+        classes[0].id;
     }
 
-    classSelect.value = String(childrenClassId);
+    classSelect.value =
+      String(financesClassId);
 
     classSelect.addEventListener(
       "change",
       async () => {
-        childrenClassId = Number(
-          classSelect.value,
-        );
+        financesClassId =
+          Number(
+            classSelect.value,
+          );
 
-        const existingForm = section.querySelector(
-          ".child-form",
-        );
-
-        if (existingForm) {
-          existingForm.remove();
-        }
-
-        await loadChildren();
+        await loadFinances();
       },
     );
 
-    createButton.addEventListener(
-      "click",
-      () => {
-        const existingForm = section.querySelector(
-          ".child-form",
-        );
-
-        if (existingForm) {
-          existingForm.remove();
-          return;
-        }
-
-        const form = createChildForm(
-          childrenClassId,
-          null,
-          reload,
-        );
-
-        section.insertBefore(form, content);
-      },
-    );
-
-    await loadChildren();
+    await loadFinances();
   } catch (error) {
     console.error(
-      "Failed to load classes for children:",
+      "Failed to load classes for finances:",
       error,
     );
 
-    classSelect.disabled = true;
-    createButton.disabled = true;
+    classSelect.disabled =
+      true;
 
     description.textContent =
       t("errors.network");
 
     content.replaceChildren(
       createElement("p", {
-        className: "content-panel-message error",
-        text: t("messages.operationFailed"),
+        className:
+          "content-panel-message error",
+        text: t(
+          "messages.operationFailed",
+        ),
       }),
     );
   }
@@ -1482,90 +3317,166 @@ async function createChildrenView() {
 }
 
 function createEmptyView(view) {
-  const translation = viewTranslations[view];
+  const translation =
+    viewTranslations[view];
 
-  const section = createElement("section", {
-    className: "content-view",
-  });
+  const section = createElement(
+    "section",
+    {
+      className:
+        "content-view",
+    },
+  );
 
-  const header = createElement("div", {
-    className: "content-view-header",
-  });
+  const header = createElement(
+    "div",
+    {
+      className:
+        "content-view-header",
+    },
+  );
 
   const title = createElement("h1", {
     className: "page-title",
     text: t(translation.title),
   });
 
-  const description = createElement("p", {
-    className: "page-description",
-    text: t(translation.description),
-  });
+  const description = createElement(
+    "p",
+    {
+      className:
+        "page-description",
+      text: t(
+        translation.description,
+      ),
+    },
+  );
 
-  header.append(title, description);
+  header.append(
+    title,
+    description,
+  );
 
-  const emptyState = createElement("div", {
-    className: "empty-state",
-  });
+  const emptyState =
+    createElement("div", {
+      className:
+        "empty-state",
+    });
 
-  const emptyTitle = createElement("h2", {
-    className: "empty-state-title",
-    text: t(translation.title),
-  });
+  const emptyTitle =
+    createElement("h2", {
+      className:
+        "empty-state-title",
+      text: t(
+        translation.title,
+      ),
+    });
 
-  const emptyDescription = createElement("p", {
-    className: "empty-state-description",
-    text: t("common.noData"),
-  });
+  const emptyDescription =
+    createElement("p", {
+      className:
+        "empty-state-description",
+      text: t(
+        "common.noData",
+      ),
+    });
 
   emptyState.append(
     emptyTitle,
     emptyDescription,
   );
 
-  section.append(header, emptyState);
+  section.append(
+    header,
+    emptyState,
+  );
 
   return section;
 }
 
-async function createMain(currentView) {
+async function createMain(
+  currentView,
+) {
   const main = createElement("main", {
     className: "app-main",
   });
 
   if (currentView === "dashboard") {
-    main.append(createDashboardView());
-  } else if (currentView === "classes") {
-    main.append(await createClassesView());
-  } else if (currentView === "children") {
-    main.append(await createChildrenView());
+    main.append(
+      createDashboardView(),
+    );
+  } else if (
+    currentView === "classes"
+  ) {
+    main.append(
+      await createClassesView(),
+    );
+  } else if (
+    currentView === "children"
+  ) {
+    main.append(
+      await createChildrenView(),
+    );
+  } else if (
+    currentView === "finances"
+  ) {
+    main.append(
+      await createFinancesView(),
+    );
   } else {
-    main.append(createEmptyView(currentView));
+    main.append(
+      createEmptyView(
+        currentView,
+      ),
+    );
   }
 
   return main;
 }
 
 async function render() {
-  const currentView = getCurrentView();
+  const currentView =
+    getCurrentView();
 
   app.replaceChildren();
 
-  const shell = createElement("div", {
-    className: "app-shell",
-  });
+  const shell = createElement(
+    "div",
+    {
+      className:
+        "app-shell",
+    },
+  );
 
-  const header = createHeader();
+  const header =
+    createHeader();
 
-  const layout = createElement("div", {
-    className: "app-layout",
-  });
+  const layout =
+    createElement("div", {
+      className:
+        "app-layout",
+    });
 
-  const navigation = createNavigation(currentView);
-  const main = await createMain(currentView);
+  const navigation =
+    createNavigation(
+      currentView,
+    );
 
-  layout.append(navigation, main);
-  shell.append(header, layout);
+  const main =
+    await createMain(
+      currentView,
+    );
+
+  layout.append(
+    navigation,
+    main,
+  );
+
+  shell.append(
+    header,
+    layout,
+  );
+
   app.append(shell);
 }
 
@@ -1574,7 +3485,8 @@ async function startApp() {
     await initI18n();
 
     const me = await getMe();
-    currentUser = me?.data?.user ?? null;
+    currentUser =
+      me?.data?.user ?? null;
 
     if (!currentUser) {
       throw new Error(
@@ -1603,8 +3515,10 @@ async function startApp() {
 
     app.replaceChildren(
       createElement("div", {
-        className: "app-error",
-        text: "ClassMoney failed to start.",
+        className:
+          "app-error",
+        text:
+          "ClassMoney failed to start.",
       }),
     );
   }

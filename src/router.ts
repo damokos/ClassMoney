@@ -22,6 +22,8 @@ import { payFinancialTransactionHandler } from "./api/financial-transactions/pay
 import { cancelFinancialTransactionHandler } from "./api/financial-transactions/cancel";
 import { AppError } from "./http/errors";
 import { errorResponse } from "./http/response";
+import { createChargeHandler } from "./api/charges/create";
+import { cancelChargeHandler } from "./api/charges/cancel";
 
 export async function router(
   request: Request,
@@ -174,6 +176,36 @@ export async function router(
           authContext,
         );
       }
+    }
+
+    const classChargesMatch = pathname.match(
+      /^\/api\/classes\/(\d+)\/charges$/,
+    );
+
+    if (
+      classChargesMatch &&
+      method === "POST"
+    ) {
+      return createChargeHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    const chargeCancelMatch = pathname.match(
+      /^\/api\/charges\/(\d+)\/cancel$/,
+    );
+
+    if (
+      chargeCancelMatch &&
+      method === "POST"
+    ) {
+      return cancelChargeHandler(
+        request,
+        env,
+        authContext,
+      );
     }
 
     const chargePayMatch = pathname.match(

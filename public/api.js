@@ -110,3 +110,100 @@ export async function updateChild(
     },
   );
 }
+
+export async function getFinances(
+  classId,
+  includeCancelled = false,
+) {
+  const query = includeCancelled
+    ? "?includeCancelled=true"
+    : "";
+
+  return request(
+    `/api/classes/${classId}/finances${query}`,
+  );
+}
+
+export async function createCharge(
+  classId,
+  input,
+) {
+  return request(`/api/classes/${classId}/charges`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function payCharge(id) {
+  return request(`/api/charges/${id}/pay`, {
+    method: "POST",
+  });
+}
+
+export async function cancelCharge(id) {
+  return request(`/api/charges/${id}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function createExpense(
+  classId,
+  input,
+) {
+  return request(`/api/classes/${classId}/expenses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function payExpense(id) {
+  return request(`/api/expenses/${id}/pay`, {
+    method: "POST",
+  });
+}
+
+export async function cancelExpense(id) {
+  return request(`/api/expenses/${id}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function createFinancialTransaction(
+  classId,
+  input,
+) {
+  return request(
+    `/api/classes/${classId}/financial-transactions`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function payFinancialTransaction(id) {
+  return request(
+    `/api/financial-transactions/${id}/pay`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function cancelFinancialTransaction(id) {
+  return request(
+    `/api/financial-transactions/${id}/cancel`,
+    {
+      method: "POST",
+    },
+  );
+}
