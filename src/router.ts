@@ -5,6 +5,7 @@ import { getClassHandler } from "./api/classes/get";
 import { listClassesHandler } from "./api/classes/list";
 import { updateClassHandler } from "./api/classes/update";
 import { healthHandler } from "./api/health";
+import { meHandler } from "./api/me";
 import { AppError, NotFoundError } from "./http/errors";
 import { errorResponse } from "./http/response";
 import { getAuthContext } from "./auth/context";
@@ -23,18 +24,6 @@ import { payChargeHandler } from "./api/charges/pay";
 import { payExpenseHandler } from "./api/expenses/pay";
 import { createExpenseHandler } from "./api/expenses/create";
 import { cancelExpenseHandler } from "./api/expenses/cancel";
-import {
-  createFinancialTransactionHandler,
-} from "./api/financial-transactions/create";
-import {
-  listFinancialTransactionsHandler,
-} from "./api/financial-transactions/list";
-import {
-  payFinancialTransactionHandler,
-} from "./api/financial-transactions/pay";
-import {
-  cancelFinancialTransactionHandler,
-} from "./api/financial-transactions/cancel";
 
 export async function router(
   request: Request,
@@ -48,62 +37,10 @@ export async function router(
       return await healthHandler(env);
     }
 
-    if (!url.pathname.startsWith("/api/")) {
-      return await env.ASSETS.fetch(request);
-    }
-
     const authContext = await getAuthContext(env, ctx);
 
-    if (
-      url.pathname.match(
-        /^\/api\/classes\/\d+\/financial-transactions$/,
-      ) &&
-      request.method === "GET"
-    ) {
-      return await listFinancialTransactionsHandler(
-        request,
-        env,
-        authContext,
-      );
-    }
-
-    if (
-      url.pathname.match(
-        /^\/api\/classes\/\d+\/financial-transactions$/,
-      ) &&
-      request.method === "POST"
-    ) {
-      return await createFinancialTransactionHandler(
-        request,
-        env,
-        authContext,
-      );
-    }
-
-    if (
-      url.pathname.match(
-        /^\/api\/financial-transactions\/\d+\/pay$/,
-      ) &&
-      request.method === "POST"
-    ) {
-      return await payFinancialTransactionHandler(
-        request,
-        env,
-        authContext,
-      );
-    }
-
-    if (
-      url.pathname.match(
-        /^\/api\/financial-transactions\/\d+\/cancel$/,
-      ) &&
-      request.method === "POST"
-    ) {
-      return await cancelFinancialTransactionHandler(
-        request,
-        env,
-        authContext,
-      );
+    if (url.pathname === "/api/me" && request.method === "GET") {
+      return await meHandler(request, env, authContext);
     }
 
     if (
@@ -245,11 +182,7 @@ export async function router(
       url.pathname.endsWith("/archive") &&
       request.method === "POST"
     ) {
-      return await archiveClassHandler(
-        request,
-        env,
-        authContext,
-      );
+      return await archiveClassHandler(request, env, authContext);
     }
 
     throw new NotFoundError("API endpoint not found");
