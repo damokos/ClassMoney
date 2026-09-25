@@ -53,6 +53,120 @@ The goal is that a technically competent user can deploy a complete ClassMoney i
 - Administrative interface
 - Cloudflare Workers and D1 based architecture
 
+## Financial management
+
+ClassMoney maintains the financial state of each class through a combination of financial records, the current class balance, and a transaction ledger.
+
+Financial amounts are stored as integer values in the smallest unit of the configured class currency. The class configuration also defines the currency and the number of currency decimals.
+
+### Charges
+
+Charges represent amounts that are owed to the class by individual children.
+
+A charge has one of the following states:
+
+- `PENDING`
+- `PAID`
+- `CANCELLED`
+
+The supported lifecycle is:
+
+```text
+PENDING -> PAID -> CANCELLED
+       \-> CANCELLED
+```
+
+A pending charge does not affect the class balance.
+
+When a charge is marked as paid:
+
+- the charge becomes `PAID`
+- payment timestamp and user are recorded
+- the class balance increases by the charge amount
+- a `CHARGE_PAID` financial transaction is created
+
+When a paid charge is cancelled:
+
+- the charge becomes `CANCELLED`
+- the original payment information is retained
+- cancellation timestamp and user are recorded
+- the class balance decreases by the charge amount
+- a `CHARGE_CANCELLED` financial transaction is created
+
+Cancelling a pending charge does not affect the class balance.
+
+Payment operations are restricted to users with the `TREASURER` role for the relevant class.
+
+### Expenses
+
+Expenses represent amounts spent from the class balance.
+
+An expense has one of the following states:
+
+- `UNPAID`
+- `PAID`
+- `CANCELLED`
+
+The supported lifecycle is:
+
+```text
+UNPAID -> PAID -> CANCELLED
+      \-> CANCELLED
+```
+
+An unpaid expense does not affect the class balance.
+
+When an expense is marked as paid:
+
+- the expense becomes `PAID`
+- payment timestamp and user are recorded
+- the class balance decreases by the expense amount
+- an `EXPENSE_PAID` financial transaction is created
+
+When a paid expense is cancelled:
+
+- the expense becomes `CANCELLED`
+- the original payment information is retained
+- cancellation timestamp and user are recorded
+- the class balance increases by the expense amount
+- an `EXPENSE_CANCELLED` financial transaction is created
+
+Cancelling an unpaid expense does not affect the class balance.
+
+Expense payment operations are restricted to users with the `TREASURER` role for the relevant class.
+
+### Receipts
+
+Expenses require a receipt reference.
+
+Receipt files are stored in Cloudflare R2. The expense record stores the R2 object key and the receipt MIME type.
+
+The receipt itself is kept outside the D1 database; D1 stores the financial record and its reference to the associated R2 object.
+
+### Financial transaction ledger
+
+Balance-changing financial operations create corresponding records in the financial transaction ledger.
+
+The current transaction types include:
+
+- `INITIAL_BALANCE`
+- `CHARGE_PAID`
+- `CHARGE_CANCELLED`
+- `EXPENSE_PAID`
+- `EXPENSE_CANCELLED`
+- `FINANCIAL_TRANSACTION_PAID`
+- `FINANCIAL_TRANSACTION_CANCELLED`
+
+Ledger entries contain the affected class, amount, transaction type, reference to the originating financial record, description, timestamp, and creating user.
+
+The ledger provides the auditable history of balance-changing operations while the class record stores the current balance.
+
+### Transactional updates
+
+Operations that change financial state update the originating financial record, class balance, and corresponding ledger entry as one database operation.
+
+This ensures that a successful financial state transition keeps the financial record, current balance, and ledger consistent.
+
 ## Database
 
 The database schema is maintained as migrations under:

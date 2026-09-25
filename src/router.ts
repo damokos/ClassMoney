@@ -20,6 +20,9 @@ import {
   removeUserRoleHandler,
 } from "./api/users/roles";
 import { payChargeHandler } from "./api/charges/pay";
+import { payExpenseHandler } from "./api/expenses/pay";
+import { createExpenseHandler } from "./api/expenses/create";
+import { cancelExpenseHandler } from "./api/expenses/cancel";
 
 
 export async function router(
@@ -37,7 +40,16 @@ export async function router(
     const authContext = await getAuthContext(env, ctx);
 
 
-
+    if (
+      url.pathname.match(/^\/api\/classes\/\d+\/expenses$/) &&
+      request.method === "POST"
+    ) {
+      return await createExpenseHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
 
     if (
       url.pathname.match(/^\/api\/charges\/\d+\/pay$/) &&
@@ -49,6 +61,29 @@ export async function router(
         authContext,
       );
     }
+
+    if (
+      url.pathname.match(/^\/api\/expenses\/\d+\/pay$/) &&
+      request.method === "POST"
+    ) {
+      return await payExpenseHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    if (
+      url.pathname.match(/^\/api\/expenses\/\d+\/cancel$/) &&
+      request.method === "POST"
+    ) {
+      return await cancelExpenseHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
 
     if (
       url.pathname.match(/^\/api\/users\/\d+$/) &&
