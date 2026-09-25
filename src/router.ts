@@ -23,7 +23,18 @@ import { payChargeHandler } from "./api/charges/pay";
 import { payExpenseHandler } from "./api/expenses/pay";
 import { createExpenseHandler } from "./api/expenses/create";
 import { cancelExpenseHandler } from "./api/expenses/cancel";
-
+import {
+  createFinancialTransactionHandler,
+} from "./api/financial-transactions/create";
+import {
+  listFinancialTransactionsHandler,
+} from "./api/financial-transactions/list";
+import {
+  payFinancialTransactionHandler,
+} from "./api/financial-transactions/pay";
+import {
+  cancelFinancialTransactionHandler,
+} from "./api/financial-transactions/cancel";
 
 export async function router(
   request: Request,
@@ -39,6 +50,57 @@ export async function router(
 
     const authContext = await getAuthContext(env, ctx);
 
+    if (
+      url.pathname.match(
+        /^\/api\/classes\/\d+\/financial-transactions$/,
+      ) &&
+      request.method === "GET"
+    ) {
+      return await listFinancialTransactionsHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    if (
+      url.pathname.match(
+        /^\/api\/classes\/\d+\/financial-transactions$/,
+      ) &&
+      request.method === "POST"
+    ) {
+      return await createFinancialTransactionHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    if (
+      url.pathname.match(
+        /^\/api\/financial-transactions\/\d+\/pay$/,
+      ) &&
+      request.method === "POST"
+    ) {
+      return await payFinancialTransactionHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    if (
+      url.pathname.match(
+        /^\/api\/financial-transactions\/\d+\/cancel$/,
+      ) &&
+      request.method === "POST"
+    ) {
+      return await cancelFinancialTransactionHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
 
     if (
       url.pathname.match(/^\/api\/classes\/\d+\/expenses$/) &&
@@ -83,7 +145,6 @@ export async function router(
         authContext,
       );
     }
-
 
     if (
       url.pathname.match(/^\/api\/users\/\d+$/) &&
