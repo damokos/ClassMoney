@@ -1868,6 +1868,11 @@ function createFinanceStatusBadge(
   });
 }
 
+function getFinancialStatusLabel(status) {
+  const translationKey = getFinancialStatusTranslationKey(status);
+  return translationKey ? t(translationKey) : status;
+}
+
 function hasClassRole(classId, roleName) {
   return (
     currentUser?.roles?.some(
@@ -3570,7 +3575,7 @@ async function createParentView() {
           text: charge.dueDate,
         }),
         createElement("td", {
-          text: charge.status,
+          text: getFinancialStatusLabel(charge.status),
         }),
       );
 
