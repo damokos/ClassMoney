@@ -101,6 +101,7 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
           subject: digest.subject,
           textContent: digest.text,
           htmlContent: digest.html,
+          trackClicks: false,
           tags: ["classmoney-digest"],
         }),
         signal: controller.signal,
