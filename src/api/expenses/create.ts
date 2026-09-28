@@ -8,6 +8,7 @@ import {
 } from "../../auth/authorization";
 import { BadRequestError } from "../../http/errors";
 import { successResponse } from "../../http/response";
+import { notifyExpenseCreated } from "../../services/notifications";
 
 export async function createExpenseHandler(
   request: Request,
@@ -98,8 +99,9 @@ export async function createExpenseHandler(
     ["PARENT_REPRESENTATIVE", "TREASURER"],
   );
 
+  const db = getDb(env);
   const expense = await createExpense(
-    getDb(env),
+    db,
     {
       classId,
       expenseDate: input.expenseDate,
@@ -111,6 +113,8 @@ export async function createExpenseHandler(
     },
     authContext.user.id,
   );
+
+  await notifyExpenseCreated(db, expense);
 
   return successResponse(
     {

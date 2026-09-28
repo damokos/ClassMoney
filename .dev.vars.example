@@ -1,1 +1,6 @@
 # Local development secrets - never commit real secrets.
+# BREVO_API_KEY is a secret. Set it locally in .dev.vars and as a Worker secret in production.
+# BREVO_API_KEY=your-brevo-api-key
+# BREVO_SENDER_EMAIL=notifications@example.com
+# BREVO_SENDER_NAME=ClassMoney
+# APP_URL=https://classmoney.example.com

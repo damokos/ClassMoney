@@ -35,6 +35,48 @@ export async function getMe() {
   return request("/api/me");
 }
 
+export async function getUsers(includeInactive = true) {
+  return request(`/api/users${includeInactive ? "?includeInactive=true" : ""}`);
+}
+
+export async function updateUser(id, input) {
+  return request(`/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+}
+
+export async function addUserRole(id, role, classId = null) {
+  return request(`/api/users/${id}/roles`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, classId }) });
+}
+
+export async function removeUserRole(id, role, classId = null) {
+  return request(`/api/users/${id}/roles`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, classId }) });
+}
+
+export async function updateUserChildren(id, childIds) {
+  return request(`/api/users/${id}/children`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ childIds }) });
+}
+
+export async function getNotifications() {
+  return request("/api/notifications");
+}
+
+export async function getNotificationSettings() {
+  return request("/api/notifications/preferences");
+}
+
+export async function saveNotificationSettings(settings) {
+  return request("/api/notifications/preferences", {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings),
+  });
+}
+
+export async function markNotificationRead(id) {
+  return request(`/api/notifications/${id}/read`, { method: "POST" });
+}
+
+export async function markAllNotificationsRead() {
+  return request("/api/notifications/read-all", { method: "POST" });
+}
+
 export async function getClasses(
   includeArchived = false,
 ) {

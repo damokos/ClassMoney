@@ -1,7 +1,7 @@
 import type { AuthContext } from "../../auth/types";
 import { requireAuthenticatedUser, requireGlobalRole } from "../../auth/authorization";
 import { getDb } from "../../db/client";
-import { listUsers } from "../../db/repositories/users";
+import { listAdminUsers } from "../../db/repositories/users";
 import type { Env } from "../../types/env";
 import { successResponse } from "../../http/response";
 
@@ -17,7 +17,7 @@ export async function listUsersHandler(
   const includeInactive =
     url.searchParams.get("includeInactive") === "true";
 
-  const users = await listUsers(
+  const users = await listAdminUsers(
     getDb(env),
     includeInactive,
   );

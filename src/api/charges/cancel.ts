@@ -16,6 +16,7 @@ import {
 } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import type { Env } from "../../types/env";
+import { notifyChargeCancelled } from "../../services/notifications";
 
 export async function cancelChargeHandler(
   request: Request,
@@ -181,6 +182,8 @@ export async function cancelChargeHandler(
   if (!cancelledCharge) {
     throw new NotFoundError("Charge not found");
   }
+
+  await notifyChargeCancelled(db, cancelledCharge);
 
   return successResponse({
     charge: cancelledCharge,

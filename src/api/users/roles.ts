@@ -9,6 +9,7 @@ import {
   removeUserRole,
 } from "../../db/repositories/user-roles";
 import { getUserById } from "../../db/repositories/users";
+import { getClassById } from "../../db/repositories/classes";
 import {
   BadRequestError,
   ConflictError,
@@ -102,6 +103,13 @@ export async function addUserRoleHandler(
     body as Record<string, unknown>,
   );
 
+  if (!user.active) {
+    throw new ConflictError("Roles cannot be assigned to an inactive user");
+  }
+  if (classId !== null && !(await getClassById(getDb(env), classId))) {
+    throw new BadRequestError("Class not found");
+  }
+
   try {
     const roleAssignment = await addUserRole(
       getDb(env),
@@ -165,6 +173,18 @@ export async function removeUserRoleHandler(
   const { role, classId } = parseRoleInput(
     body as Record<string, unknown>,
   );
+
+  if (classId !== null && (role === "TREASURER" || role === "PARENT_REPRESENTATIVE")) {
+    const counts = await getDb(env).prepare(`
+      SELECT
+        SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS own_count,
+        COUNT(*) AS total_count
+      FROM user_roles WHERE class_id = ? AND role = ?
+    `).bind(id, classId, role).first<{ own_count: number | null; total_count: number }>();
+    if ((counts?.own_count ?? 0) > 0 && counts?.total_count === 1) {
+      throw new ConflictError(`Cannot remove the last ${role} for class ${classId}`);
+    }
+  }
 
   const removed = await removeUserRole(
     getDb(env),

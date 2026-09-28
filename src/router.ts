@@ -14,6 +14,9 @@ import { updateChildHandler } from "./api/children/update";
 import { listUsersHandler } from "./api/users/list";
 import { getUserHandler } from "./api/users/get";
 import { updateUserHandler } from "./api/users/update";
+import { addUserRoleHandler, removeUserRoleHandler } from "./api/users/roles";
+import { updateUserChildrenHandler } from "./api/users/children";
+import { getNotificationsHandler, getNotificationSettingsHandler, saveNotificationSettingsHandler, markNotificationReadHandler, markAllNotificationsReadHandler } from "./api/notifications";
 import { payChargeHandler } from "./api/charges/pay";
 import { createExpenseHandler } from "./api/expenses/create";
 import { payExpenseHandler } from "./api/expenses/pay";
@@ -136,6 +139,15 @@ export async function router(
       /^\/api\/children\/(\d+)$/,
     );
 
+    const scopedChildMatch = pathname.match(
+      /^\/api\/classes\/(\d+)\/children\/(\d+)$/,
+    );
+
+    if (scopedChildMatch) {
+      if (method === "GET") return getChildHandler(request, env, authContext);
+      if (method === "PATCH") return updateChildHandler(request, env, authContext);
+    }
+
     if (childMatch) {
       if (method === "GET") {
         return getChildHandler(
@@ -154,18 +166,34 @@ export async function router(
       }
     }
 
-    const classUsersMatch = pathname.match(
-      /^\/api\/classes\/(\d+)\/users$/,
-    );
+    if (method === "GET" && pathname === "/api/users") {
+      return listUsersHandler(request, env, authContext);
+    }
 
-    if (classUsersMatch) {
-      if (method === "GET") {
-        return listUsersHandler(
-          request,
-          env,
-          authContext,
-        );
-      }
+    if (pathname === "/api/notifications/preferences") {
+      if (method === "GET") return getNotificationSettingsHandler(request, env, authContext);
+      if (method === "PUT") return saveNotificationSettingsHandler(request, env, authContext);
+    }
+    if (method === "GET" && pathname === "/api/notifications") {
+      return getNotificationsHandler(request, env, authContext);
+    }
+    if (method === "POST" && pathname === "/api/notifications/read-all") {
+      return markAllNotificationsReadHandler(request, env, authContext);
+    }
+    const notificationReadMatch = pathname.match(/^\/api\/notifications\/(\d+)\/read$/);
+    if (notificationReadMatch && method === "POST") {
+      return markNotificationReadHandler(request, env, authContext);
+    }
+
+    const userRolesMatch = pathname.match(/^\/api\/users\/(\d+)\/roles$/);
+    if (userRolesMatch) {
+      if (method === "POST") return addUserRoleHandler(request, env, authContext);
+      if (method === "DELETE") return removeUserRoleHandler(request, env, authContext);
+    }
+
+    const userChildrenMatch = pathname.match(/^\/api\/users\/(\d+)\/children$/);
+    if (userChildrenMatch && method === "PUT") {
+      return updateUserChildrenHandler(request, env, authContext);
     }
 
     const userMatch = pathname.match(

@@ -9,6 +9,7 @@ import {
 import { NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import { payExpense } from "../../services/expenses";
+import { notifyExpensePaid } from "../../services/notifications";
 
 export async function payExpenseHandler(
   request: Request,
@@ -45,6 +46,8 @@ export async function payExpenseHandler(
     expense.id,
     authContext.user.id,
   );
+
+  await notifyExpensePaid(db, paidExpense);
 
   return successResponse({
     expense: paidExpense,

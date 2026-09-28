@@ -109,6 +109,7 @@ const hu = {
 
   users: {
     title: "Felhasználók",
+    description: "Felhasználók, osztályszerepkörök és gyermek-hozzárendelések kezelése.",
     user: "Felhasználó",
     email: "Email-cím",
     role: "Szerepkör",
@@ -117,6 +118,9 @@ const hu = {
     edit: "Felhasználó szerkesztése",
     deactivate: "Felhasználó deaktiválása",
     activate: "Felhasználó aktiválása",
+    deactivateConfirm: "Deaktiválod a felhasználót? A szerepkörei is törlődnek.",
+    emailReadonly: "Az email-cím a belépési azonosító, ezért nem módosítható.",
+    childrenAssignments: "Gyermek-hozzárendelések",
   },
 
   roles: {
@@ -227,6 +231,25 @@ const hu = {
     timezone: "Időzóna",
     saveSettings: "Beállítások mentése",
     settingsSaved: "Értesítési beállítások mentve.",
+    settingsTitle: "Értesítési beállítások",
+    emailEnabled: "Napi email összesítő bekapcsolása",
+    eventEmailSettings: "Az összesítőbe kerülő események",
+    emailUnavailable: "A Brevo emailküldés még nincs beállítva ezen a telepítésen.",
+    markRead: "Olvasottnak jelölés",
+    markAllRead: "Összes olvasottnak jelölése",
+    unread: "Olvasatlan",
+    read: "Olvasott",
+    deliveryFailed: "Az emailküldés sikertelen; a következő összesítőnél újrapróbáljuk.",
+    digestTimeHelp: "A küldési idő helyi idő szerint értendő, ötperces lépésekben.",
+    eventTitles: {
+      CHARGE_ASSIGNED_OR_CANCELLED_FOR_MY_CHILD: "Befizetési tétel a gyermekedhez",
+      CHARGE_ASSIGNED_OR_CANCELLED: "Befizetési tétel változása",
+      CHARGE_DUE_SOON: "Közelgő befizetési határidő",
+      CHARGE_MARKED_PAID: "Befizetés rendezve",
+      EXPENSE_CREATED: "Új kiadás rögzítve",
+      EXPENSE_CANCELLED: "Kiadás érvénytelenítve",
+      EXPENSE_MARKED_PAID: "Kiadás kifizetve",
+    },
   },
 
   messages: {

@@ -1,0 +1,10 @@
+{{TITLE}}
+
+{{INTRO}}
+
+{{CONTENT}}
+
+ClassMoney:
+{{APP_URL}}
+
+Ez automatikus értesítés a ClassMoney rendszerből.

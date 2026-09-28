@@ -9,6 +9,7 @@ import {
 import { NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import { cancelExpense } from "../../services/expenses";
+import { notifyExpenseCancelled } from "../../services/notifications";
 
 export async function cancelExpenseHandler(
   request: Request,
@@ -46,6 +47,8 @@ export async function cancelExpenseHandler(
     expense.id,
     authContext.user.id,
   );
+
+  await notifyExpenseCancelled(db, cancelledExpense);
 
   return successResponse({
     expense: cancelledExpense,

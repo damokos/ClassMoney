@@ -291,6 +291,104 @@ button:disabled {
   border-collapse: collapse;
 }
 
+.user-admin-editor {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+}
+
+.user-role-list,
+.user-child-choices {
+  display: grid;
+  gap: 8px;
+}
+
+.user-role-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.user-role-line > span {
+  flex: 1 1 220px;
+}
+
+.user-child-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-page {
+  display: grid;
+  gap: 24px;
+}
+
+.notification-settings-panel,
+.notification-inbox-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+}
+
+.notification-setting-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.notification-setting-row small,
+.notification-event small {
+  color: var(--color-text-secondary);
+}
+
+.notification-setup-note {
+  padding: 10px 12px;
+  color: var(--color-warning);
+  background: var(--color-warning-light);
+  border-radius: var(--radius-small);
+}
+
+.notification-event-list,
+.notification-type-list {
+  display: grid;
+  gap: 10px;
+}
+
+.notification-event {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+}
+
+.notification-event.notification-unread {
+  border-left: 4px solid var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.notification-event-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.notification-delivery-failed {
+  color: var(--color-danger) !important;
+}
+
 .data-table th,
 .data-table td {
   padding: 14px 16px;

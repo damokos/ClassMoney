@@ -264,6 +264,18 @@ The initial schema contains the core entities required for users, classes, child
 
 Database changes will be introduced through versioned migrations.
 
+### Notifications and daily email digest
+
+The notification inbox is available to every authenticated user. Events are created for the relevant class roles and linked children when charges or expenses are created, cancelled, paid, or approach their due date. Users can mark inbox items as read and manage daily digest preferences, including event types, send time, and IANA timezone.
+
+Email delivery uses Brevo's transactional email API and a five-minute Cron Trigger. To enable it for a deployment:
+
+1. Create a Brevo API key and verify a sender address in Brevo.
+2. Set `BREVO_API_KEY` as a Worker secret and the verified `BREVO_SENDER_EMAIL` as a Worker variable. `BREVO_SENDER_NAME` and `APP_URL` are optional Worker variables.
+3. Apply the `0003_notifications.sql` migration.
+
+HTML and plain-text digest templates are versioned under `public/email/`; the digest groups parent notices by child and includes class and currency details. The sender address must be verified in Brevo. If Brevo is not configured, the inbox and notification preferences remain available, and the UI reports that email delivery is unavailable. Email delivery errors remain visible in the event delivery status and are retried on the user's next scheduled digest.
+
 ## Architecture
 
 The application is designed around the following basic architecture:

@@ -1,4 +1,6 @@
 import type { User } from "../../domain/users/types";
+import type { UserRole } from "../../auth/types";
+import { getUserRoles } from "./user-roles";
 
 interface UserRow {
   id: number;
@@ -61,7 +63,7 @@ export async function getUserById(
 export async function listUsers(
   db: D1Database,
   includeInactive = false,
-): Promise<User[]> {
+): Promise<Array<User & { roles: UserRole[] }>> {
   const query = includeInactive
     ? `
       SELECT ${USER_COLUMNS}
@@ -79,7 +81,45 @@ export async function listUsers(
     .prepare(query)
     .all<UserRow>();
 
-  return result.results.map(mapUser);
+  return Promise.all(result.results.map(async (row) => ({
+    ...mapUser(row),
+    roles: await getUserRoles(db, row.id),
+  })));
+}
+
+export async function listAdminUsers(
+  db: D1Database,
+  includeInactive = true,
+): Promise<Array<User & { roles: UserRole[]; children: Array<{ id: number; name: string; classId: number; className: string }> }>> {
+  const users = await listUsers(db, includeInactive);
+  return Promise.all(users.map(async (user) => {
+    const children = await db.prepare(`
+      SELECT children.id, children.name, children.class_id AS classId,
+        classes.display_name AS className
+      FROM user_children
+      INNER JOIN children ON children.id = user_children.child_id
+      INNER JOIN classes ON classes.id = children.class_id
+      WHERE user_children.user_id = ?
+      ORDER BY classes.display_name COLLATE NOCASE, children.name COLLATE NOCASE
+    `).bind(user.id).all<{ id: number; name: string; classId: number; className: string }>();
+    return { ...user, children: children.results };
+  }));
+}
+
+export async function setUserChildren(
+  db: D1Database,
+  userId: number,
+  childIds: number[],
+): Promise<void> {
+  const ids = [...new Set(childIds)];
+  if (ids.length !== childIds.length) throw new Error("Duplicate child IDs");
+  if (ids.length) {
+    const placeholders = ids.map(() => "?").join(",");
+    const found = await db.prepare(`SELECT id FROM children WHERE id IN (${placeholders})`).bind(...ids).all<{ id: number }>();
+    if (found.results.length !== ids.length) throw new Error("One or more children are unavailable");
+  }
+  const statements = [db.prepare("DELETE FROM user_children WHERE user_id = ?").bind(userId), ...ids.map((childId) => db.prepare("INSERT INTO user_children (user_id, child_id) VALUES (?, ?)").bind(userId, childId))];
+  await db.batch(statements);
 }
 
 export async function getOrCreateUserByEmail(

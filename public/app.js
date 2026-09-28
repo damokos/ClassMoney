@@ -17,6 +17,16 @@ import {
   updateChild,
   getFinances,
   getMyFinances,
+  getUsers,
+  updateUser,
+  addUserRole,
+  removeUserRole,
+  updateUserChildren,
+  getNotifications,
+  getNotificationSettings,
+  saveNotificationSettings,
+  markNotificationRead,
+  markAllNotificationsRead,
   createCharge,
   payCharge,
   cancelCharge,
@@ -94,14 +104,6 @@ const navigationItems = [
     translationKey: "notifications",
     visible: () => true,
   },
-  {
-    key: "administration",
-    translationKey: "administration",
-    visible: (user) =>
-      user?.roles?.some(
-        (role) => role.role === "ADMIN",
-      ) ?? false,
-  },
 ];
 
 const viewTranslations = {
@@ -128,10 +130,6 @@ const viewTranslations = {
   notifications: {
     title: "notifications.title",
     description: "notifications.description",
-  },
-  administration: {
-    title: "navigation.administration",
-    description: "common.noData",
   },
 };
 
@@ -3612,6 +3610,251 @@ function createEmptyView(view) {
   return section;
 }
 
+async function createUsersView() {
+  const section = createElement("section", { className: "content-view" });
+  const header = createElement("div", { className: "content-view-header" });
+  const title = createElement("h1", { className: "page-title", text: t("users.title") });
+  const description = createElement("p", { className: "page-description", text: t("users.description") });
+  header.replaceChildren(title, description);
+  const content = createElement("div", { className: "content-panel" });
+  content.append(createElement("p", { className: "content-panel-message", text: t("common.loading") }));
+  section.append(header, content);
+
+  const load = async () => {
+    try {
+      const [userResult, classResult] = await Promise.all([getUsers(true), getClasses(true)]);
+      const users = userResult?.data?.users ?? [];
+      const classes = classResult?.data?.classes ?? [];
+      const tableWrap = createElement("div", { className: "table-wrapper" });
+      const table = createElement("table", { className: "data-table" });
+      const thead = createElement("thead");
+      const head = createElement("tr");
+      for (const label of ["users.email", "common.active", "users.roles", "common.actions"]) head.append(createElement("th", { text: t(label) }));
+      thead.append(head);
+      const tbody = createElement("tbody");
+      for (const user of users) {
+        const row = createElement("tr");
+        row.append(createElement("td", { text: user.email }), createElement("td", { text: user.active ? t("common.active") : t("common.inactive") }));
+        const rolesText = (user.roles ?? []).map((assignment) => {
+          const roleLabel = t(assignment.role === "ADMIN" ? "roles.admin" : assignment.role === "TREASURER" ? "roles.treasurer" : "roles.parentRepresentative");
+          const scopedClass = classes.find((item) => item.id === assignment.classId);
+          return assignment.classId === null ? roleLabel : `${roleLabel} – ${scopedClass?.displayName ?? `#${assignment.classId}`}`;
+        }).join(", ") || "—";
+        row.append(createElement("td", { text: rolesText }));
+        const actionCell = createElement("td", { className: "table-actions" });
+        const editButton = createElement("button", { className: "button button-secondary", text: "Kezelés", attributes: { type: "button" } });
+        editButton.addEventListener("click", () => openEditor(user, classes, row, tbody));
+        actionCell.append(editButton);
+        if (user.active) {
+          const disable = createElement("button", { className: "button button-danger", text: t("users.deactivate"), attributes: { type: "button" } });
+          disable.addEventListener("click", async () => {
+            if (!window.confirm(t("users.deactivateConfirm"))) return;
+            try { await updateUser(user.id, { active: false }); await load(); }
+            catch (error) { window.alert(error.message || t("messages.operationFailed")); }
+          });
+          actionCell.append(disable);
+        } else {
+          const enable = createElement("button", { className: "button button-secondary", text: t("users.activate"), attributes: { type: "button" } });
+          enable.addEventListener("click", async () => { try { await updateUser(user.id, { active: true }); await load(); } catch (error) { window.alert(error.message || t("messages.operationFailed")); } });
+          actionCell.append(enable);
+        }
+        row.append(actionCell);
+        tbody.append(row);
+      }
+      if (!users.length) {
+        content.replaceChildren(createElement("p", { className: "content-panel-message", text: t("common.noData") }));
+        return;
+      }
+      table.append(thead, tbody); tableWrap.append(table); content.replaceChildren(tableWrap);
+    } catch (error) {
+      console.error("Failed to load users:", error);
+      content.replaceChildren(createElement("p", { className: "content-panel-message error", text: error.message || t("messages.operationFailed") }));
+    }
+  };
+
+  const openEditor = (user, classes, row, tbody) => {
+    const previous = tbody.querySelector(".user-edit-row");
+    if (previous) previous.remove();
+    const editRow = createElement("tr", { className: "user-edit-row" });
+    const cell = createElement("td", { attributes: { colspan: "4" } });
+    const editor = createElement("div", { className: "user-admin-editor" });
+    editor.append(createElement("h2", { className: "section-title", text: `${t("users.edit")}: ${user.email}` }));
+    editor.append(createElement("p", { className: "page-description", text: t("users.emailReadonly") }));
+    const scopeSelect = createElement("select", { attributes: { "aria-label": "Osztály kiválasztása" } });
+    for (const classItem of classes) scopeSelect.append(createElement("option", { text: `${classItem.code} – ${classItem.displayName}`, attributes: { value: String(classItem.id) } }));
+    const roleList = createElement("div", { className: "user-role-list" });
+    const renderRoles = () => {
+      roleList.replaceChildren();
+      for (const assignment of user.roles ?? []) {
+        const line = createElement("div", { className: "user-role-line" });
+        const label = assignment.role === "ADMIN" ? t("roles.admin") : assignment.role === "TREASURER" ? t("roles.treasurer") : t("roles.parentRepresentative");
+        const scopedClass = classes.find((item) => item.id === assignment.classId);
+        line.append(createElement("span", { text: assignment.classId === null ? label : `${label} · ${scopedClass?.displayName ?? `#${assignment.classId}`}` }));
+        const remove = createElement("button", { className: "button button-danger", text: t("common.delete"), attributes: { type: "button" } });
+        remove.addEventListener("click", async () => {
+          try { await removeUserRole(user.id, assignment.role, assignment.classId); await load(); }
+          catch (error) { window.alert(error.message || t("messages.operationFailed")); }
+        });
+        line.append(remove); roleList.append(line);
+      }
+      const roleSelect = createElement("select");
+      for (const [value, label] of [["PARENT_REPRESENTATIVE", t("roles.parentRepresentative")], ["TREASURER", t("roles.treasurer")], ["ADMIN", t("roles.admin")]]) roleSelect.append(createElement("option", { text: label, attributes: { value } }));
+      const add = createElement("button", { className: "button button-primary", text: t("common.add"), attributes: { type: "button" } });
+      add.addEventListener("click", async () => {
+        const role = roleSelect.value;
+        const classId = role === "ADMIN" ? null : Number(scopeSelect.value);
+        try { await addUserRole(user.id, role, classId); await load(); }
+        catch (error) { window.alert(error.message || t("messages.operationFailed")); }
+      });
+      const addRow = createElement("div", { className: "user-role-line" });
+      addRow.append(roleSelect, scopeSelect, add); roleList.append(addRow);
+    };
+    renderRoles();
+    const childHeading = createElement("h3", { className: "section-title", text: t("users.childrenAssignments") });
+    const childScope = createElement("select", { attributes: { "aria-label": "Gyermekek osztálya" } });
+    for (const item of classes) childScope.append(createElement("option", { text: `${item.code} – ${item.displayName}`, attributes: { value: String(item.id) } }));
+    const childChoices = createElement("div", { className: "user-child-choices" });
+    const saveChildren = createElement("button", { className: "button button-primary", text: t("common.save"), attributes: { type: "button" } });
+    const existingIds = new Set((user.children ?? []).map((child) => child.id));
+    let displayedChildren = [];
+    const renderChildren = async () => {
+      childChoices.replaceChildren(createElement("p", { text: t("common.loading") }));
+      if (!childScope.value) return;
+      try {
+        const result = await getChildren(Number(childScope.value), true);
+        displayedChildren = result?.data?.children ?? [];
+        childChoices.replaceChildren();
+        for (const child of displayedChildren) {
+          const label = createElement("label", { className: "user-child-choice" });
+          const checkbox = createElement("input", { attributes: { type: "checkbox", value: String(child.id) } });
+          checkbox.checked = existingIds.has(child.id);
+          label.append(checkbox, document.createTextNode(` ${child.name}${child.active ? "" : " (inaktív)"}`));
+          childChoices.append(label);
+        }
+        if (!displayedChildren.length) childChoices.append(createElement("p", { text: t("common.noData") }));
+      } catch (error) { childChoices.replaceChildren(createElement("p", { className: "content-panel-message error", text: error.message || t("messages.operationFailed") })); }
+    };
+    childScope.addEventListener("change", renderChildren);
+    saveChildren.addEventListener("click", async () => {
+      const selectedInScope = new Set([...childChoices.querySelectorAll("input:checked")].map((input) => Number(input.value)));
+      const ids = [...existingIds].filter((id) => !displayedChildren.some((child) => child.id === id)).concat([...selectedInScope]);
+      try { await updateUserChildren(user.id, ids); await load(); }
+      catch (error) { window.alert(error.message || t("messages.operationFailed")); }
+    });
+    editor.append(createElement("h3", { className: "section-title", text: t("users.roles") }), roleList, childHeading, childScope, childChoices, saveChildren);
+    cell.append(editor); editRow.append(cell); row.after(editRow);
+    renderChildren();
+  };
+
+  await load();
+  return section;
+}
+
+async function createNotificationsView() {
+  const section = createElement("section", { className: "content-view" });
+  const header = createElement("div", { className: "content-view-header" });
+  header.append(
+    createElement("h1", { className: "page-title", text: t("notifications.title") }),
+    createElement("p", { className: "page-description", text: t("notifications.description") }),
+  );
+  const content = createElement("div", { className: "content-panel notification-page" });
+  content.append(createElement("p", { className: "content-panel-message", text: t("common.loading") }));
+  section.append(header, content);
+
+  try {
+    const [eventResult, settingsResult] = await Promise.all([getNotifications(), getNotificationSettings()]);
+    const events = eventResult?.data?.notifications ?? [];
+    const settings = settingsResult?.data?.settings ?? { emailEnabled: true, digestTime: "08:00", timezone: "Europe/Budapest", preferences: {} };
+    const emailConfigured = settingsResult?.data?.emailConfigured === true;
+    const settingsPanel = createElement("section", { className: "notification-settings-panel" });
+    settingsPanel.append(createElement("h2", { className: "section-title", text: t("notifications.settingsTitle") }));
+    if (!emailConfigured) settingsPanel.append(createElement("p", { className: "notification-setup-note", text: t("notifications.emailUnavailable") }));
+    const emailLabel = createElement("label", { className: "notification-setting-row" });
+    const emailEnabled = createElement("input", { attributes: { type: "checkbox" } });
+    emailEnabled.checked = settings.emailEnabled;
+    emailEnabled.disabled = !emailConfigured;
+    emailLabel.append(emailEnabled, document.createTextNode(` ${t("notifications.emailEnabled")}`));
+    const timeGroup = createElement("div", { className: "notification-setting-row" });
+    const timeLabel = createElement("label", { text: t("notifications.dailyDigestTime"), attributes: { for: "notification-digest-time" } });
+    const timeInput = createElement("input", { attributes: { id: "notification-digest-time", type: "time", step: "300", value: settings.digestTime } });
+    timeInput.value = settings.digestTime;
+    const timeHelp = createElement("small", { text: t("notifications.digestTimeHelp") });
+    timeGroup.append(timeLabel, timeInput, timeHelp);
+    const timezoneGroup = createElement("div", { className: "notification-setting-row" });
+    const timezoneLabel = createElement("label", { text: t("notifications.timezone"), attributes: { for: "notification-timezone" } });
+    const timezoneInput = createElement("input", { attributes: { id: "notification-timezone", type: "text", value: settings.timezone, autocomplete: "off" } });
+    timezoneInput.value = settings.timezone;
+    timezoneGroup.append(timezoneLabel, timezoneInput);
+    const typeHeading = createElement("h3", { className: "section-title", text: t("notifications.eventEmailSettings") });
+    const preferences = new Map();
+    const typeList = createElement("div", { className: "notification-type-list" });
+    for (const type of settingsResult?.data?.types ?? []) {
+      const label = createElement("label", { className: "notification-setting-row" });
+      const checkbox = createElement("input", { attributes: { type: "checkbox", value: type.code } });
+      checkbox.checked = settings.preferences?.[type.code] !== false;
+      checkbox.disabled = !emailConfigured;
+      preferences.set(type.code, checkbox);
+      label.append(checkbox, document.createTextNode(` ${t(`notifications.eventTitles.${type.code}`)}`));
+      typeList.append(label);
+    }
+    const saveButton = createElement("button", { className: "button button-primary", text: t("notifications.saveSettings"), attributes: { type: "button" } });
+    const saveStatus = createElement("p", { className: "page-description" });
+    saveButton.addEventListener("click", async () => {
+      try {
+        await saveNotificationSettings({
+          emailEnabled: emailEnabled.checked,
+          digestTime: timeInput.value,
+          timezone: timezoneInput.value.trim(),
+          preferences: Object.fromEntries([...preferences].map(([code, input]) => [code, input.checked])),
+        });
+        saveStatus.textContent = t("notifications.settingsSaved");
+      } catch (error) { saveStatus.textContent = error.message || t("messages.operationFailed"); }
+    });
+    settingsPanel.append(emailLabel, timeGroup, timezoneGroup, typeHeading, typeList, saveButton, saveStatus);
+
+    const inboxPanel = createElement("section", { className: "notification-inbox-panel" });
+    const inboxHeader = createElement("div", { className: "finance-section-header" });
+    inboxHeader.append(createElement("h2", { className: "section-title", text: t("notifications.title") }));
+    const unreadCount = events.filter((event) => !event.readAt).length;
+    if (unreadCount) {
+      const markAll = createElement("button", { className: "button button-secondary", text: t("notifications.markAllRead"), attributes: { type: "button" } });
+      markAll.addEventListener("click", async () => { try { await markAllNotificationsRead(); await render(); } catch (error) { window.alert(error.message || t("messages.operationFailed")); } });
+      inboxHeader.append(markAll);
+    }
+    inboxPanel.append(inboxHeader);
+    if (!events.length) {
+      inboxPanel.append(createElement("p", { className: "content-panel-message", text: t("common.noData") }));
+    } else {
+      const eventList = createElement("div", { className: "notification-event-list" });
+      for (const event of events) {
+        const item = createElement("article", { className: `notification-event${event.readAt ? "" : " notification-unread"}` });
+        const payload = event.payload ?? {};
+        const eventTitle = t(`notifications.eventTitles.${event.code}`);
+        item.append(createElement("h3", { className: "notification-event-title", text: eventTitle }));
+        if (typeof payload.title === "string") item.append(createElement("p", { text: payload.title }));
+        if (typeof payload.dueDate === "string") item.append(createElement("p", { text: `${t("charges.dueDate")}: ${payload.dueDate}` }));
+        if (event.status === "FAILED") item.append(createElement("small", { className: "notification-delivery-failed", text: t("notifications.deliveryFailed") }));
+        const eventDate = new Date(event.createdAt);
+        item.append(createElement("small", { text: Number.isNaN(eventDate.valueOf()) ? event.createdAt : new Intl.DateTimeFormat(getLanguage(), { dateStyle: "medium", timeStyle: "short" }).format(eventDate) }));
+        if (!event.readAt) {
+          const markRead = createElement("button", { className: "button button-secondary", text: t("notifications.markRead"), attributes: { type: "button" } });
+          markRead.addEventListener("click", async () => { try { await markNotificationRead(event.id); await render(); } catch (error) { window.alert(error.message || t("messages.operationFailed")); } });
+          item.append(markRead);
+        } else {
+          item.append(createElement("small", { text: t("notifications.read") }));
+        }
+        eventList.append(item);
+      }
+      inboxPanel.append(eventList);
+    }
+    content.replaceChildren(settingsPanel, inboxPanel);
+  } catch (error) {
+    console.error("Failed to load notifications:", error);
+    content.replaceChildren(createElement("p", { className: "content-panel-message error", text: error.message || t("messages.operationFailed") }));
+  }
+  return section;
+}
+
 async function createMain(
   currentView,
 ) {
@@ -3647,6 +3890,10 @@ async function createMain(
     main.append(
       await createFinancesView(),
     );
+  } else if (currentView === "users") {
+    main.append(await createUsersView());
+  } else if (currentView === "notifications") {
+    main.append(await createNotificationsView());
   } else {
     main.append(
       createEmptyView(

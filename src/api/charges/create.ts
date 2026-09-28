@@ -9,6 +9,7 @@ import { getClassById } from "../../db/repositories/classes";
 import { BadRequestError, NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import type { Env } from "../../types/env";
+import { notifyChargeCreated } from "../../services/notifications";
 
 export async function createChargeHandler(
   request: Request,
@@ -147,6 +148,8 @@ export async function createChargeHandler(
     },
     authContext.user.id,
   );
+
+  await notifyChargeCreated(db, charge);
 
   return successResponse(
     {
