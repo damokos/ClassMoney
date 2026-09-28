@@ -207,12 +207,21 @@ function createHeader() {
     className: "app-brand",
   });
 
+  const brandIcon = createElement("img", {
+    className: "app-brand-icon",
+    attributes: {
+      src: "/classmoney-icon.png",
+      alt: "",
+      "aria-hidden": "true",
+    },
+  });
+
   const brandTitle = createElement("span", {
     className: "app-brand-title",
     text: t("common.appName"),
   });
 
-  brand.append(brandTitle);
+  brand.append(brandIcon, brandTitle);
 
   const headerActions = createElement("div", {
     className: "app-header-actions",

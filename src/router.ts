@@ -76,6 +76,17 @@ export async function router(
       );
     }
 
+    if (
+      method === "POST" &&
+      pathname === "/api/classes"
+    ) {
+      return createClassHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
     const classMatch = pathname.match(
       /^\/api\/classes\/(\d+)$/,
     );
