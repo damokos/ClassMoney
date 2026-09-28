@@ -13,6 +13,16 @@ interface ChildRow {
   updated_at: string;
 }
 
+interface UserChildRow extends ChildRow {
+  class_display_name: string;
+  bank_account_number: string | null;
+}
+
+export interface UserChild extends Child {
+  classDisplayName: string;
+  bankAccountNumber: string | null;
+}
+
 function mapChild(row: ChildRow): Child {
   return {
     id: row.id,
@@ -21,6 +31,14 @@ function mapChild(row: ChildRow): Child {
     active: row.active === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapUserChild(row: UserChildRow): UserChild {
+  return {
+    ...mapChild(row),
+    classDisplayName: row.class_display_name,
+    bankAccountNumber: row.bank_account_number,
   };
 }
 
@@ -153,19 +171,29 @@ export async function updateChild(
 export async function listChildrenForUser(
   db: D1Database,
   userId: number,
-): Promise<Child[]> {
+): Promise<UserChild[]> {
   const result = await db
     .prepare(`
-      SELECT ${CHILD_COLUMNS}
+      SELECT
+        children.id,
+        children.class_id,
+        children.name,
+        children.active,
+        children.created_at,
+        children.updated_at,
+        classes.display_name AS class_display_name,
+        classes.bank_account_number
       FROM children
       INNER JOIN user_children
         ON user_children.child_id = children.id
+      INNER JOIN classes
+        ON classes.id = children.class_id
       WHERE user_children.user_id = ?
         AND children.active = 1
       ORDER BY children.name COLLATE NOCASE, children.id
     `)
     .bind(userId)
-    .all<ChildRow>();
+    .all<UserChildRow>();
 
-  return result.results.map(mapChild);
+  return result.results.map(mapUserChild);
 }

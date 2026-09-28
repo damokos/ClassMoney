@@ -124,6 +124,10 @@ export async function getFinances(
   );
 }
 
+export async function getMyFinances() {
+  return request("/api/my/finances");
+}
+
 export async function createCharge(
   classId,
   input,

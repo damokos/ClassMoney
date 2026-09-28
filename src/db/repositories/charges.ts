@@ -21,6 +21,16 @@ interface ChargeRow {
   created_by: number;
 }
 
+interface UserChargeRow extends ChargeRow {
+  currency: string;
+  currency_decimals: number;
+}
+
+export interface UserCharge extends Charge {
+  currency: string;
+  currencyDecimals: number;
+}
+
 function mapCharge(row: ChargeRow): Charge {
   return {
     id: row.id,
@@ -37,6 +47,14 @@ function mapCharge(row: ChargeRow): Charge {
     batchId: row.batch_id,
     createdAt: row.created_at,
     createdBy: row.created_by,
+  };
+}
+
+function mapUserCharge(row: UserChargeRow): UserCharge {
+  return {
+    ...mapCharge(row),
+    currency: row.currency,
+    currencyDecimals: row.currency_decimals,
   };
 }
 
@@ -154,7 +172,7 @@ export async function listChargesForUser(
   db: D1Database,
   userId: number,
   includeCancelled = false,
-): Promise<Charge[]> {
+): Promise<UserCharge[]> {
   const userChargeColumns = `
     charges.id,
     charges.class_id,
@@ -169,7 +187,9 @@ export async function listChargesForUser(
     charges.cancelled_by,
     charges.batch_id,
     charges.created_at,
-    charges.created_by
+    charges.created_by,
+    classes.currency,
+    classes.currency_decimals
   `;
 
   const query = includeCancelled
@@ -181,6 +201,8 @@ export async function listChargesForUser(
       INNER JOIN children
         ON children.id = charges.child_id
        AND children.class_id = charges.class_id
+      INNER JOIN classes
+        ON classes.id = charges.class_id
       WHERE user_children.user_id = ?
         AND children.active = 1
       ORDER BY charges.due_date, charges.id
@@ -193,6 +215,8 @@ export async function listChargesForUser(
       INNER JOIN children
         ON children.id = charges.child_id
        AND children.class_id = charges.class_id
+      INNER JOIN classes
+        ON classes.id = charges.class_id
       WHERE user_children.user_id = ?
         AND children.active = 1
         AND charges.status != 'CANCELLED'
@@ -202,9 +226,9 @@ export async function listChargesForUser(
   const result = await db
     .prepare(query)
     .bind(userId)
-    .all<ChargeRow>();
+    .all<UserChargeRow>();
 
-  return result.results.map(mapCharge);
+  return result.results.map(mapUserCharge);
 }
 
 export async function createCharge(

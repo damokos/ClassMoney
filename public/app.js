@@ -16,6 +16,7 @@ import {
   createChild,
   updateChild,
   getFinances,
+  getMyFinances,
   createCharge,
   payCharge,
   cancelCharge,
@@ -35,6 +36,7 @@ let childrenClassId = null;
 let childrenIncludeInactive = false;
 let financesClassId = null;
 let financesIncludeCancelled = false;
+let myChildren = [];
 
 const navigationItems = [
   {
@@ -81,6 +83,11 @@ const navigationItems = [
           role.role === "PARENT_REPRESENTATIVE" ||
           role.role === "TREASURER",
       ) ?? false,
+  },
+  {
+    key: "parent",
+    translationKey: "parent",
+    visible: () => true,
   },
   {
     key: "notifications",
@@ -3316,6 +3323,217 @@ async function createFinancesView() {
   return section;
 }
 
+async function createParentView() {
+  const section = createElement("section", {
+    className: "content-view",
+  });
+
+  const header = createElement("div", {
+    className: "content-view-header",
+  });
+
+  const headerContent = createElement("div");
+
+  const title = createElement("h1", {
+    className: "page-title",
+    text: t("parent.title"),
+  });
+
+  const description = createElement("p", {
+    className: "page-description",
+    text: t("parent.description"),
+  });
+
+  headerContent.append(title, description);
+  header.append(headerContent);
+
+  const content = createElement("div", {
+    className: "content-panel",
+  });
+
+  content.append(
+    createElement("p", {
+      className: "content-panel-message",
+      text: t("common.loading"),
+    }),
+  );
+
+  section.append(header, content);
+
+  try {
+    const result = await getMyFinances();
+
+    myChildren = result?.data?.children ?? [];
+    const charges = result?.data?.charges ?? [];
+
+    if (myChildren.length === 0) {
+      content.replaceChildren(
+        createElement("p", {
+          className: "content-panel-message",
+          text: t("parent.noChildren"),
+        }),
+      );
+
+      return section;
+    }
+
+    const childrenTitle = createElement("h2", {
+      className: "section-title",
+      text: t("parent.children"),
+    });
+
+    const childrenList = createElement("div", {
+      className: "table-wrapper",
+    });
+
+    const childrenTable = createElement("table", {
+      className: "data-table",
+    });
+
+    const childrenThead = createElement("thead");
+    const childrenHeaderRow = createElement("tr");
+
+    for (const key of [
+      "parent.child",
+      "parent.class",
+      "parent.bankAccount",
+    ]) {
+      childrenHeaderRow.append(
+	createElement("th", {
+	  text: t(key),
+	}),
+      );
+    }
+
+    childrenThead.append(childrenHeaderRow);
+
+    const childrenTbody = createElement("tbody");
+
+    for (const child of myChildren) {
+      const row = createElement("tr");
+
+      row.append(
+	createElement("td", {
+	  text: child.name,
+	}),
+	createElement("td", {
+	  text: child.classDisplayName,
+	}),
+	createElement("td", {
+	  text: child.bankAccountNumber ?? "—",
+	}),
+      );
+
+      childrenTbody.append(row);
+    }
+
+    childrenTable.append(childrenThead, childrenTbody);
+    childrenList.append(childrenTable);
+
+    const chargesTitle = createElement("h2", {
+      className: "section-title",
+      text: t("parent.charges"),
+    });
+
+    content.replaceChildren(
+      childrenTitle,
+      childrenList,
+      chargesTitle,
+    );
+
+    if (charges.length === 0) {
+      content.append(
+        createElement("p", {
+          className: "content-panel-message",
+          text: t("parent.noCharges"),
+        }),
+      );
+
+      return section;
+    }
+
+    const tableWrapper = createElement("div", {
+      className: "table-wrapper",
+    });
+
+    const table = createElement("table", {
+      className: "data-table",
+    });
+
+    const thead = createElement("thead");
+    const headerRow = createElement("tr");
+
+    for (const key of [
+      "parent.child",
+      "parent.titleLabel",
+      "parent.amount",
+      "parent.dueDate",
+      "parent.status",
+    ]) {
+      headerRow.append(
+        createElement("th", {
+          text: t(key),
+        }),
+      );
+    }
+
+    thead.append(headerRow);
+
+    const tbody = createElement("tbody");
+
+    for (const charge of charges) {
+      const child = myChildren.find(
+        (item) => item.id === charge.childId,
+      );
+
+      const row = createElement("tr");
+
+      row.append(
+        createElement("td", {
+          text: child?.name ?? "—",
+        }),
+        createElement("td", {
+          text: charge.title,
+        }),
+        createElement("td", {
+          className: "amount",
+          text: formatMoney(
+            charge.amount,
+            charge.currency,
+            charge.currencyDecimals,
+          ),
+        }),
+        createElement("td", {
+          text: charge.dueDate,
+        }),
+        createElement("td", {
+          text: charge.status,
+        }),
+      );
+
+      tbody.append(row);
+    }
+
+    table.append(thead, tbody);
+    tableWrapper.append(table);
+    content.append(tableWrapper);
+  } catch (error) {
+    console.error(
+      "Failed to load parent finances:",
+      error,
+    );
+
+    content.replaceChildren(
+      createElement("p", {
+        className: "content-panel-message error",
+        text: t("messages.operationFailed"),
+      }),
+    );
+  }
+
+  return section;
+}
+
 function createEmptyView(view) {
   const translation =
     viewTranslations[view];
@@ -3418,6 +3636,12 @@ async function createMain(
       await createChildrenView(),
     );
   } else if (
+    currentView === "parent"
+  ) {
+    main.append(
+      await createParentView(),
+    );
+  } else if (
     currentView === "finances"
   ) {
     main.append(
@@ -3493,6 +3717,10 @@ async function startApp() {
         "Authenticated user information is unavailable.",
       );
     }
+
+    const myFinances = await getMyFinances();
+    myChildren =
+      myFinances?.data?.children ?? [];
 
     window.addEventListener(
       "hashchange",

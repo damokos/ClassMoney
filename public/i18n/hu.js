@@ -45,6 +45,7 @@ const hu = {
     financialTransactions: "Pénzügyi tranzakciók",
     notifications: "Értesítések",
     administration: "Adminisztráció",
+    parent: "Saját befizetések",
   },
 
   statusLabels: {
@@ -61,6 +62,22 @@ const hu = {
     welcome: "Üdvözöljük a ClassMoney rendszerben.",
     balance: "Osztály egyenlege",
     recentActivity: "Legutóbbi tevékenységek",
+  },
+
+  parent: {
+    title: "Saját befizetések",
+    description: "A hozzád tartozó gyermekek befizetési tételei.",
+    children: "Gyermekeim",
+    charges: "Befizetések",
+    child: "Gyermek",
+    class: "Osztály",
+    bankAccount: "Bankszámlaszám",
+    titleLabel: "Megnevezés",
+    amount: "Összeg",
+    dueDate: "Határidő",
+    status: "Állapot",
+    noChildren: "Nincs hozzád rendelt aktív gyermek.",
+    noCharges: "Nincs megjeleníthető befizetési tétel.",
   },
 
   classes: {
