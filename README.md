@@ -224,11 +224,11 @@ Expense payment operations are restricted to users with the `TREASURER` role for
 
 ### Receipts
 
-Expenses require a receipt reference.
+Expenses require a receipt file when they are created. PDF, JPEG, PNG, and WebP files up to 10 MB are accepted.
 
-Receipt files are stored in Cloudflare R2. The expense record stores the R2 object key and the receipt MIME type.
+Receipt files are uploaded to Cloudflare R2 by the application. The expense record stores the R2 object key and the verified receipt MIME type.
 
-The receipt itself is kept outside the D1 database; D1 stores the financial record and its reference to the associated R2 object.
+The receipt itself is kept outside the D1 database; D1 stores the financial record and its reference to the associated R2 object. Viewing a receipt requires authentication and access to the class that owns the expense; the R2 bucket is not exposed publicly.
 
 ### Financial transaction ledger
 
@@ -420,7 +420,7 @@ The current administrative API includes endpoints for:
 
 The API uses structured JSON responses and application-level HTTP errors for authentication, authorization, validation, not-found, and conflict conditions.
 
-The administrative module is implemented as the backend foundation for the future user interface. The public API surface and endpoint documentation may evolve before the first production release.
+The administrative module includes a user interface for managing accounts, roles, class scope, and child associations. The public API surface and endpoint documentation may evolve before the first production release.
 
 ## Development status
 

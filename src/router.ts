@@ -19,6 +19,7 @@ import { updateUserChildrenHandler } from "./api/users/children";
 import { getNotificationsHandler, getNotificationSettingsHandler, saveNotificationSettingsHandler, markNotificationReadHandler, markAllNotificationsReadHandler } from "./api/notifications";
 import { payChargeHandler } from "./api/charges/pay";
 import { createExpenseHandler } from "./api/expenses/create";
+import { getExpenseReceiptHandler } from "./api/expenses/receipt";
 import { payExpenseHandler } from "./api/expenses/pay";
 import { cancelExpenseHandler } from "./api/expenses/cancel";
 import { createFinancialTransactionHandler } from "./api/financial-transactions/create";
@@ -276,6 +277,13 @@ export async function router(
         env,
         authContext,
       );
+    }
+
+    const expenseReceiptMatch = pathname.match(
+      /^\/api\/classes\/(\d+)\/expenses\/(\d+)\/receipt$/,
+    );
+    if (expenseReceiptMatch && method === "GET") {
+      return getExpenseReceiptHandler(request, env, authContext);
     }
 
     const expensePayMatch = pathname.match(

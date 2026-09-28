@@ -2178,6 +2178,14 @@ function createExpenseForm(
     },
   });
 
+  const receiptInput = createElement("input", {
+    attributes: {
+      type: "file",
+      accept: "application/pdf,image/jpeg,image/png,image/webp",
+      required: "required",
+    },
+  });
+
   const { form } = createFinanceFormShell(
     "financial.createExpense",
     async () => {
@@ -2192,13 +2200,28 @@ function createExpenseForm(
         );
       }
 
+      const receipt = receiptInput.files?.[0];
+      if (!receipt) {
+        throw new Error(t("expenses.receiptRequired"));
+      }
+      if (receipt.size > 10 * 1024 * 1024) {
+        throw new Error(t("expenses.receiptTooLarge"));
+      }
+      if (![
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ].includes(receipt.type)) {
+        throw new Error(t("expenses.receiptInvalidType"));
+      }
+
       await createExpense(classId, {
         expenseDate: dateInput.value,
         title: titleInput.value.trim(),
         category: categoryInput.value.trim(),
         amount,
-        receiptKey: null,
-        receiptMimeType: null,
+        receipt,
       });
 
       await onSaved();
@@ -2237,6 +2260,16 @@ function createExpenseForm(
     ),
     form.children[4],
   );
+
+  const receiptField = createFinanceField(
+    "financial.receipt",
+    receiptInput,
+  );
+  receiptField.append(createElement("small", {
+    className: "form-help",
+    text: t("expenses.receiptHelp"),
+  }));
+  form.insertBefore(receiptField, form.children[5]);
 
   return form;
 }
@@ -3095,6 +3128,21 @@ async function createFinancesView() {
                   createFinanceStatusBadge(
                     item.status,
                   ),
+              },
+              {
+                label: "financial.receipt",
+                render: (item) => {
+                  const link = createElement("a", {
+                    className: "button button-secondary",
+                    text: t("expenses.openReceipt"),
+                    attributes: {
+                      href: `/api/classes/${financesClassId}/expenses/${item.id}/receipt`,
+                      target: "_blank",
+                      rel: "noopener noreferrer",
+                    },
+                  });
+                  return link;
+                },
               },
               {
                 label: "financial.actions",

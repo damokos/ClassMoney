@@ -199,12 +199,13 @@ export async function createExpense(
   classId,
   input,
 ) {
+  const body = new FormData();
+  for (const [key, value] of Object.entries(input)) {
+    body.append(key, value);
+  }
   return request(`/api/classes/${classId}/expenses`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    body,
   });
 }
 

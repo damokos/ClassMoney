@@ -562,6 +562,11 @@ button:disabled {
     box-shadow 0.15s ease;
 }
 
+.form-help {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
