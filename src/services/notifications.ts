@@ -1,6 +1,20 @@
 import type { Charge } from "../domain/charges/types";
 import type { Expense } from "../domain/expenses/types";
-import { createNotificationEvents } from "../db/repositories/notifications";
+import {
+  createNotificationEvents,
+  createUserCreatedNotificationEvents,
+} from "../db/repositories/notifications";
+
+export async function notifyUserCreated(
+  db: D1Database,
+  user: { id: number; email: string; createdAt: string },
+): Promise<void> {
+  try {
+    await createUserCreatedNotificationEvents(db, user);
+  } catch (error) {
+    console.error("Unable to create new-user admin notification", user.id, error);
+  }
+}
 
 async function createEvent(db: D1Database, code: string, classId: number, entityType: string, entityId: number, payload: Record<string, unknown>, childId?: number): Promise<void> {
   try {

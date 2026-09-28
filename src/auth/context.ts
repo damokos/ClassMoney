@@ -4,6 +4,7 @@ import { getOrCreateUserByEmail } from "../db/repositories/users";
 import { getUserRoles } from "../db/repositories/user-roles";
 import { getAuthenticatedIdentity } from "./identity";
 import type { AuthContext } from "./types";
+import { notifyUserCreated } from "../services/notifications";
 
 export async function getAuthContext(
   request: Request,
@@ -22,17 +23,21 @@ export async function getAuthContext(
 
   const db = getDb(env);
 
-  const user = await getOrCreateUserByEmail(
+  const userResult = await getOrCreateUserByEmail(
     db,
     identity.email,
   );
 
-  const roles = await getUserRoles(db, user.id);
+  if (userResult.created && !userResult.initialAdmin) {
+    await notifyUserCreated(db, userResult.user);
+  }
+
+  const roles = await getUserRoles(db, userResult.user.id);
 
   return {
     identity,
     user: {
-      ...user,
+      ...userResult.user,
       roles,
     },
   };

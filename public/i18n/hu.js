@@ -252,7 +252,10 @@ const hu = {
       EXPENSE_CREATED: "Új kiadás rögzítve",
       EXPENSE_CANCELLED: "Kiadás érvénytelenítve",
       EXPENSE_MARKED_PAID: "Kiadás kifizetve",
+      USER_CREATED: "Új felhasználó lépett be – gyermek-hozzárendelés szükséges",
     },
+    newUserEmail: "Belépési email",
+    manageNewUser: "Felhasználó kezelése",
   },
 
   messages: {

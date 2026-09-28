@@ -99,6 +99,39 @@ export async function createNotificationEvents(
     recipient.type_id, recipient.user_id, entityType, entityId)));
 }
 
+export async function createUserCreatedNotificationEvents(
+  db: D1Database,
+  user: { id: number; email: string; createdAt: string },
+): Promise<void> {
+  const createdAt = new Date().toISOString();
+  const payload = JSON.stringify({
+    userId: user.id,
+    email: user.email,
+    createdAt: user.createdAt,
+  });
+  await db.prepare(`
+    INSERT OR IGNORE INTO notification_events (
+      notification_type_id, user_id, class_id, entity_type, entity_id,
+      payload, status, created_at
+    )
+    SELECT t.id, admin.id, NULL, 'user_created', ?, ?, 'PENDING', ?
+    FROM notification_types t
+    INNER JOIN notification_type_roles tr
+      ON tr.notification_type_id = t.id AND tr.role = 'ADMIN'
+    INNER JOIN user_roles ur
+      ON ur.role = 'ADMIN' AND ur.class_id IS NULL
+    INNER JOIN users admin ON admin.id = ur.user_id AND admin.active = 1
+    WHERE t.code = 'USER_CREATED' AND t.active = 1
+      AND NOT EXISTS (
+        SELECT 1 FROM notification_events e
+        WHERE e.notification_type_id = t.id
+          AND e.user_id = admin.id
+          AND e.entity_type = 'user_created'
+          AND e.entity_id = ?
+      )
+  `).bind(user.id, payload, createdAt, user.id).run();
+}
+
 export async function listNotifications(db: D1Database, userId: number): Promise<Array<Record<string, unknown>>> {
   const rows = await db.prepare(`
     SELECT e.id, t.code, e.class_id AS classId, e.entity_type AS entityType,

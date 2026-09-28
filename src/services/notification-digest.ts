@@ -65,10 +65,14 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
   }));
   const assignedRoles = await env.DB.prepare("SELECT role, class_id FROM user_roles WHERE user_id = ?").bind(user.id)
     .all<{ role: string; class_id: number | null }>();
+  const isGlobalAdmin = assignedRoles.results.some((assignment) => assignment.role === "ADMIN" && assignment.class_id === null);
+  const hasNewUsers = digestEvents.some((event) => event.code === "USER_CREATED");
   const relevantRoles = new Set(assignedRoles.results
     .filter((assignment) => assignment.class_id !== null && digestEvents.some((event) => event.classId === assignment.class_id))
     .map((assignment) => assignment.role));
-  const role = relevantRoles.has("TREASURER") && relevantRoles.has("PARENT_REPRESENTATIVE")
+  const role = isGlobalAdmin && hasNewUsers
+    ? "admin"
+    : relevantRoles.has("TREASURER") && relevantRoles.has("PARENT_REPRESENTATIVE")
     ? "combined"
     : relevantRoles.has("TREASURER") ? "treasurer"
       : relevantRoles.has("PARENT_REPRESENTATIVE") ? "szmk" : "parent";

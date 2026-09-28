@@ -28,6 +28,7 @@ function eventAction(event: DigestEvent): string {
 function eventLabel(event: DigestEvent): string {
   const action = eventAction(event);
   const labels: Record<string, Record<string, string>> = {
+    USER_CREATED: { created: "Új felhasználó lépett be" },
     CHARGE_ASSIGNED_OR_CANCELLED_FOR_MY_CHILD: { created: "Új fizetendő tétel", cancelled: "Fizetendő tételt töröltek" },
     CHARGE_ASSIGNED_OR_CANCELLED: { created: "Új fizetendő tétel", cancelled: "Fizetendő tételt töröltek" },
     CHARGE_MARKED_PAID: { marked_paid: "Tételt kiegyenlítettnek jelöltek" },
@@ -61,12 +62,17 @@ function formatDate(value: unknown): string {
 }
 
 function eventDate(event: DigestEvent): unknown {
+  if (event.code === "USER_CREATED" && typeof event.payload.createdAt === "string") {
+    return event.payload.createdAt.slice(0, 10);
+  }
   return event.code.startsWith("EXPENSE_") ? event.payload.expenseDate : event.payload.dueDate;
 }
 
 function eventRow(event: DigestEvent, includeChild: boolean): string {
   const payload = event.payload;
-  return `<tr>${includeChild ? `<td>${escapeHtml(payload.childName || "—")}</td>` : ""}<td>${escapeHtml(eventLabel(event))}</td><td>${escapeHtml(payload.className || "—")}</td><td>${escapeHtml(payload.title || payload.description || "—")}</td><td>${escapeHtml(formatMoney(event))}</td><td>${escapeHtml(formatDate(eventDate(event)))}</td></tr>`;
+  const person = payload.childName || payload.email || "—";
+  const detail = event.code === "USER_CREATED" ? "Első belépés" : payload.title || payload.description || "—";
+  return `<tr>${includeChild ? `<td>${escapeHtml(person)}</td>` : ""}<td>${escapeHtml(eventLabel(event))}</td><td>${escapeHtml(payload.className || "—")}</td><td>${escapeHtml(detail)}</td><td>${escapeHtml(formatMoney(event))}</td><td>${escapeHtml(formatDate(eventDate(event)))}</td></tr>`;
 }
 
 function renderParentContent(events: DigestEvent[]): string {
@@ -90,7 +96,7 @@ export async function loadDigestTemplates(assets: Fetcher): Promise<DigestTempla
 
 export function renderDigest(input: {
   templates: DigestTemplates;
-  role: "parent" | "szmk" | "treasurer" | "combined";
+  role: "parent" | "szmk" | "treasurer" | "combined" | "admin";
   recipientName: string | null;
   events: DigestEvent[];
   appUrl?: string;
@@ -99,21 +105,24 @@ export function renderDigest(input: {
   const title = role === "parent"
     ? `Napi értesítés – ${recipientName || "gyermekeid"} pénzügyeiről`
     : role === "szmk" ? "Napi SZMK összefoglaló"
-      : role === "treasurer" ? "Napi pénztárosi összefoglaló"
-        : "Napi pénzügyi összefoglaló";
+    : role === "treasurer" ? "Napi pénztárosi összefoglaló"
+        : role === "admin" ? "Napi adminisztrátori összefoglaló"
+          : "Napi pénzügyi összefoglaló";
   const intro = role === "parent"
     ? "Az elmúlt napban az alábbi változások történtek a hozzád kapcsolódó gyermekek pénzügyeiben."
     : role === "szmk"
       ? "Az elmúlt napban az alábbi, osztályszintű pénzügyi változások történtek."
+      : role === "admin"
+        ? "Az elmúlt nap új felhasználói és pénzügyi eseményei."
       : "Az elmúlt nap pénzügyi értesítései.";
   const content = role === "parent"
     ? renderParentContent(events)
-    : `<table><thead><tr><th>Tanuló</th><th>Esemény</th><th>Osztály</th><th>Tétel</th><th>Összeg</th><th>Dátum / határidő</th></tr></thead><tbody>${events.map((event) => eventRow(event, true)).join("")}</tbody></table>`;
+    : `<table><thead><tr><th>${role === "admin" ? "Felhasználó / tanuló" : "Tanuló"}</th><th>Esemény</th><th>Osztály</th><th>Tétel</th><th>Összeg</th><th>Dátum / határidő</th></tr></thead><tbody>${events.map((event) => eventRow(event, true)).join("")}</tbody></table>`;
   const lines = events.map((event) => {
     const payload = event.payload;
-    const child = role === "parent" ? "" : `${typeof payload.childName === "string" ? payload.childName : "—"} | `;
+    const child = role === "parent" ? "" : `${typeof payload.childName === "string" ? payload.childName : typeof payload.email === "string" ? payload.email : "—"} | `;
     const className = typeof payload.className === "string" ? payload.className : "—";
-    const detail = typeof payload.title === "string" ? payload.title : typeof payload.description === "string" ? payload.description : "—";
+    const detail = event.code === "USER_CREATED" ? "Első belépés" : typeof payload.title === "string" ? payload.title : typeof payload.description === "string" ? payload.description : "—";
     return `${child}${eventLabel(event)} | ${className} | ${detail} | ${formatMoney(event)} | ${formatDate(eventDate(event))}`;
   }).join("\n");
   let html = templates.html

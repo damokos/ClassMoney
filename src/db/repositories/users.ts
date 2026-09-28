@@ -125,7 +125,7 @@ export async function setUserChildren(
 export async function getOrCreateUserByEmail(
   db: D1Database,
   email: string,
-): Promise<User> {
+): Promise<{ user: User; created: boolean; initialAdmin: boolean }> {
   const normalizedEmail = email.trim().toLowerCase();
 
   const existingUser = await getUserByEmail(
@@ -134,7 +134,7 @@ export async function getOrCreateUserByEmail(
   );
 
   if (existingUser) {
-    return existingUser;
+    return { user: existingUser, created: false, initialAdmin: false };
   }
 
   const userCount = await db
@@ -194,7 +194,11 @@ export async function getOrCreateUserByEmail(
       .run();
   }
 
-  return user;
+  return {
+    user,
+    created: Boolean(insertResult),
+    initialAdmin: Boolean(insertResult && isFirstUser),
+  };
 }
 
 export async function setUserActive(

@@ -3854,6 +3854,7 @@ async function createNotificationsView() {
     const preferences = new Map();
     const typeList = createElement("div", { className: "notification-type-list" });
     for (const type of settingsResult?.data?.types ?? []) {
+      if (type.code === "USER_CREATED" && !isAdmin()) continue;
       const label = createElement("label", { className: "notification-setting-row" });
       const checkbox = createElement("input", { attributes: { type: "checkbox", value: type.code } });
       checkbox.checked = settings.preferences?.[type.code] !== false;
@@ -3896,8 +3897,19 @@ async function createNotificationsView() {
         const payload = event.payload ?? {};
         const eventTitle = t(`notifications.eventTitles.${event.code}`);
         item.append(createElement("h3", { className: "notification-event-title", text: eventTitle }));
+        if (event.code === "USER_CREATED" && typeof payload.email === "string") {
+          item.append(createElement("p", { text: `${t("notifications.newUserEmail")}: ${payload.email}` }));
+        }
         if (typeof payload.title === "string") item.append(createElement("p", { text: payload.title }));
         if (typeof payload.dueDate === "string") item.append(createElement("p", { text: `${t("charges.dueDate")}: ${payload.dueDate}` }));
+        if (event.code === "USER_CREATED" && isAdmin()) {
+          const manageUser = createElement("button", { className: "button button-primary", text: t("notifications.manageNewUser"), attributes: { type: "button" } });
+          manageUser.addEventListener("click", async () => {
+            try { await markNotificationRead(event.id); } catch (error) { console.error("Failed to mark notification read:", error); }
+            setView("users");
+          });
+          item.append(manageUser);
+        }
         if (event.status === "FAILED") item.append(createElement("small", { className: "notification-delivery-failed", text: t("notifications.deliveryFailed") }));
         const eventDate = new Date(event.createdAt);
         item.append(createElement("small", { text: Number.isNaN(eventDate.valueOf()) ? event.createdAt : new Intl.DateTimeFormat(getLanguage(), { dateStyle: "medium", timeStyle: "short" }).format(eventDate) }));
