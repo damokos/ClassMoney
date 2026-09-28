@@ -119,18 +119,92 @@ button:disabled {
   gap: 10px;
 }
 
-.language-label {
-  color: var(--color-text-secondary);
-  font-size: 14px;
+.language-picker {
+  position: relative;
 }
 
-.language-select {
-  min-width: 120px;
-  padding: 7px 10px;
+.language-picker-button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
   color: var(--color-text);
+  font-size: 23px;
+  line-height: 1;
   background: var(--color-surface);
-  border: 1px solid var(--color-border-dark);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  box-shadow: var(--shadow-small);
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.language-picker-button:hover,
+.language-picker-button[aria-expanded="true"] {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+  transform: translateY(-1px);
+}
+
+.language-picker-button:focus-visible,
+.language-menu-option:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 0.35);
+  outline-offset: 2px;
+}
+
+.language-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 10px);
+  right: 0;
+  display: grid;
+  min-width: 176px;
+  gap: 4px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  box-shadow: var(--shadow-medium);
+}
+
+.language-menu[hidden] {
+  display: none;
+}
+
+.language-menu-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  color: var(--color-text);
+  text-align: left;
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-small);
+}
+
+.language-menu-option:hover,
+.language-menu-option[aria-checked="true"] {
+  background: var(--color-primary-light);
+}
+
+.language-menu-option[aria-checked="true"] {
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.language-menu-flag {
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 50%;
 }
 
 .app-layout {

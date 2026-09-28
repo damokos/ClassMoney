@@ -133,6 +133,11 @@ const viewTranslations = {
   },
 };
 
+const languageFlags = {
+  hu: "🇭🇺",
+  en: "🇬🇧",
+};
+
 function isAdmin() {
   return (
     currentUser?.roles?.some(
@@ -227,41 +232,113 @@ function createHeader() {
     className: "app-header-actions",
   });
 
-  const languageLabel = createElement("span", {
-    className: "language-label",
-    text: t("language.selector"),
+  const languagePicker = createElement("div", {
+    className: "language-picker",
   });
-
-  const languageSelect = createElement("select", {
-    className: "language-select",
+  const languages = Object.entries(getLanguages());
+  const activeLanguage = getLanguage();
+  const activeLanguageName = getLanguages()[activeLanguage] ?? activeLanguage;
+  const languageButton = createElement("button", {
+    className: "language-picker-button",
+    text: languageFlags[activeLanguage] ?? "🌐",
     attributes: {
-      "aria-label": t("accessibility.changeLanguage"),
+      type: "button",
+      "aria-label": `${t("accessibility.changeLanguage")}: ${activeLanguageName}`,
+      "aria-haspopup": "menu",
+      "aria-expanded": "false",
+      title: `${t("accessibility.changeLanguage")}: ${activeLanguageName}`,
     },
   });
+  const languageMenu = createElement("div", {
+    className: "language-menu",
+    attributes: {
+      role: "menu",
+      "aria-label": t("language.available"),
+      hidden: "",
+    },
+  });
+  const languageOptions = [];
+  let menuIsOpen = false;
 
-  for (const [code, name] of Object.entries(
-    getLanguages(),
-  )) {
-    const option = createElement("option", {
-      text: name,
+  const closeLanguageMenu = (returnFocus = false) => {
+    if (!menuIsOpen) return;
+    menuIsOpen = false;
+    languageMenu.hidden = true;
+    languageButton.setAttribute("aria-expanded", "false");
+    document.removeEventListener("pointerdown", handleOutsidePointerDown);
+    document.removeEventListener("keydown", handleLanguageMenuKeydown);
+    if (returnFocus) languageButton.focus();
+  };
+
+  const handleOutsidePointerDown = (event) => {
+    if (!languagePicker.contains(event.target)) {
+      closeLanguageMenu();
+    }
+  };
+
+  const handleLanguageMenuKeydown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeLanguageMenu(true);
+      return;
+    }
+
+    const currentIndex = languageOptions.indexOf(document.activeElement);
+    let nextIndex;
+    if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % languageOptions.length;
+    if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + languageOptions.length) % languageOptions.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = languageOptions.length - 1;
+    if (nextIndex !== undefined) {
+      event.preventDefault();
+      languageOptions[nextIndex]?.focus();
+    }
+  };
+
+  for (const [code, name] of languages) {
+    const option = createElement("button", {
+      className: "language-menu-option",
       attributes: {
-        value: code,
+        type: "button",
+        role: "menuitemradio",
+        "aria-checked": String(code === activeLanguage),
+        lang: code,
       },
     });
-
-    option.selected = code === getLanguage();
-    languageSelect.append(option);
+    option.append(
+      createElement("span", {
+        className: "language-menu-flag",
+        text: languageFlags[code] ?? "🌐",
+        attributes: { "aria-hidden": "true" },
+      }),
+      createElement("span", { text: name }),
+    );
+    option.addEventListener("click", async () => {
+      closeLanguageMenu();
+      if (code === activeLanguage) return;
+      await setLanguage(code);
+      await render();
+    });
+    languageOptions.push(option);
+    languageMenu.append(option);
   }
 
-  languageSelect.addEventListener(
-    "change",
-    async (event) => {
-      await setLanguage(event.target.value);
-      await render();
-    },
-  );
+  languageButton.addEventListener("click", () => {
+    menuIsOpen = !menuIsOpen;
+    languageMenu.hidden = !menuIsOpen;
+    languageButton.setAttribute("aria-expanded", String(menuIsOpen));
+    if (menuIsOpen) {
+      document.addEventListener("pointerdown", handleOutsidePointerDown);
+      document.addEventListener("keydown", handleLanguageMenuKeydown);
+      languageOptions.find((option) => option.getAttribute("aria-checked") === "true")?.focus();
+    } else {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+      document.removeEventListener("keydown", handleLanguageMenuKeydown);
+    }
+  });
 
-  headerActions.append(languageLabel, languageSelect);
+  languagePicker.append(languageButton, languageMenu);
+  headerActions.append(languagePicker);
   header.append(brand, headerActions);
 
   return header;
