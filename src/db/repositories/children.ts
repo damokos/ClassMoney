@@ -149,3 +149,23 @@ export async function updateChild(
 
   return result ? mapChild(result) : null;
 }
+
+export async function listChildrenForUser(
+  db: D1Database,
+  userId: number,
+): Promise<Child[]> {
+  const result = await db
+    .prepare(`
+      SELECT ${CHILD_COLUMNS}
+      FROM children
+      INNER JOIN user_children
+        ON user_children.child_id = children.id
+      WHERE user_children.user_id = ?
+        AND children.active = 1
+      ORDER BY children.name COLLATE NOCASE, children.id
+    `)
+    .bind(userId)
+    .all<ChildRow>();
+
+  return result.results.map(mapChild);
+}

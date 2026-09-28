@@ -6,6 +6,7 @@ import { getClassHandler } from "./api/classes/get";
 import { createClassHandler } from "./api/classes/create";
 import { updateClassHandler } from "./api/classes/update";
 import { getFinancesHandler } from "./api/finances/get";
+import { myFinancesHandler } from "./api/my/finances";
 import { createChildHandler } from "./api/children/create";
 import { listChildrenHandler } from "./api/children/list";
 import { getChildHandler } from "./api/children/get";
@@ -43,6 +44,17 @@ export async function router(
 
     if (method === "GET" && pathname === "/api/me") {
       return meHandler(
+        request,
+        env,
+        authContext,
+      );
+    }
+
+    if (
+      method === "GET" &&
+      pathname === "/api/my/finances"
+    ) {
+      return myFinancesHandler(
         request,
         env,
         authContext,

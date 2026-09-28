@@ -150,6 +150,63 @@ export async function listChargesForChild(
   return result.results.map(mapCharge);
 }
 
+export async function listChargesForUser(
+  db: D1Database,
+  userId: number,
+  includeCancelled = false,
+): Promise<Charge[]> {
+  const userChargeColumns = `
+    charges.id,
+    charges.class_id,
+    charges.child_id,
+    charges.title,
+    charges.amount,
+    charges.due_date,
+    charges.status,
+    charges.paid_at,
+    charges.paid_by,
+    charges.cancelled_at,
+    charges.cancelled_by,
+    charges.batch_id,
+    charges.created_at,
+    charges.created_by
+  `;
+
+  const query = includeCancelled
+    ? `
+      SELECT ${userChargeColumns}
+      FROM charges
+      INNER JOIN user_children
+        ON user_children.child_id = charges.child_id
+      INNER JOIN children
+        ON children.id = charges.child_id
+       AND children.class_id = charges.class_id
+      WHERE user_children.user_id = ?
+        AND children.active = 1
+      ORDER BY charges.due_date, charges.id
+    `
+    : `
+      SELECT ${userChargeColumns}
+      FROM charges
+      INNER JOIN user_children
+        ON user_children.child_id = charges.child_id
+      INNER JOIN children
+        ON children.id = charges.child_id
+       AND children.class_id = charges.class_id
+      WHERE user_children.user_id = ?
+        AND children.active = 1
+        AND charges.status != 'CANCELLED'
+      ORDER BY charges.due_date, charges.id
+    `;
+
+  const result = await db
+    .prepare(query)
+    .bind(userId)
+    .all<ChargeRow>();
+
+  return result.results.map(mapCharge);
+}
+
 export async function createCharge(
   db: D1Database,
   input: CreateChargeInput,
