@@ -1288,6 +1288,14 @@ function createChildForm(
         if (onSaved) {
           await onSaved();
         }
+
+        if (child) {
+          form.remove();
+        } else {
+          nameInput.value = "";
+          saveButton.disabled = false;
+          nameInput.focus();
+        }
       } catch (error) {
         console.error(
           "Failed to save child:",
