@@ -12,6 +12,7 @@ import { listChildrenHandler } from "./api/children/list";
 import { getChildHandler } from "./api/children/get";
 import { updateChildHandler } from "./api/children/update";
 import { listUsersHandler } from "./api/users/list";
+import { createUserHandler } from "./api/users/create";
 import { getUserHandler } from "./api/users/get";
 import { updateUserHandler } from "./api/users/update";
 import { addUserRoleHandler, removeUserRoleHandler } from "./api/users/roles";
@@ -178,8 +179,9 @@ export async function router(
       }
     }
 
-    if (method === "GET" && pathname === "/api/users") {
-      return listUsersHandler(request, env, authContext);
+    if (pathname === "/api/users") {
+      if (method === "GET") return listUsersHandler(request, env, authContext);
+      if (method === "POST") return createUserHandler(request, env, authContext);
     }
 
     if (pathname === "/api/notifications/preferences") {

@@ -39,6 +39,14 @@ export async function getUsers(includeInactive = true) {
   return request(`/api/users${includeInactive ? "?includeInactive=true" : ""}`);
 }
 
+export async function createUser(email) {
+  return request("/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
 export async function updateUser(id, input) {
   return request(`/api/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
 }

@@ -60,6 +60,25 @@ export async function getUserById(
   return row ? mapUser(row) : null;
 }
 
+export async function createUserByEmail(
+  db: D1Database,
+  email: string,
+): Promise<User> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const now = new Date().toISOString();
+  const row = await db.prepare(`
+    INSERT INTO users (email, active, created_at, updated_at)
+    VALUES (?, 1, ?, ?)
+    RETURNING ${USER_COLUMNS}
+  `).bind(normalizedEmail, now, now).first<UserRow>();
+
+  if (!row) {
+    throw new Error("Failed to create user");
+  }
+
+  return mapUser(row);
+}
+
 export async function listUsers(
   db: D1Database,
   includeInactive = false,

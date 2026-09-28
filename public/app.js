@@ -18,6 +18,7 @@ import {
   getFinances,
   getMyFinances,
   getUsers,
+  createUser,
   updateUser,
   addUserRole,
   removeUserRole,
@@ -377,7 +378,90 @@ function createNavigation(currentView) {
   return navigation;
 }
 
-function createDashboardView() {
+function createDashboardMetric(label, value, note = "") {
+  const card = createElement("article", {
+    className: "dashboard-metric",
+  });
+  card.append(
+    createElement("h2", {
+      className: "dashboard-metric-label",
+      text: label,
+    }),
+    createElement("div", {
+      className: "dashboard-metric-value",
+      text: value,
+    }),
+  );
+  if (note) {
+    card.append(createElement("p", {
+      className: "dashboard-metric-note",
+      text: note,
+    }));
+  }
+  return card;
+}
+
+function sumByCurrency(items) {
+  const totals = new Map();
+  for (const item of items) {
+    const currency = item.currency ?? "HUF";
+    const decimals = Number(item.currencyDecimals ?? 0);
+    const key = `${currency}:${decimals}`;
+    totals.set(key, {
+      currency,
+      decimals,
+      amount: (totals.get(key)?.amount ?? 0) + Number(item.amount ?? 0),
+    });
+  }
+  return [...totals.values()]
+    .map((total) => formatMoney(total.amount, total.currency, total.decimals))
+    .join(" · ") || "—";
+}
+
+function createDashboardPanel(title, content) {
+  const panel = createElement("section", {
+    className: "dashboard-panel",
+  });
+  panel.append(
+    createElement("h2", {
+      className: "dashboard-panel-title",
+      text: title,
+    }),
+    content,
+  );
+  return panel;
+}
+
+function createDashboardList(items, emptyText) {
+  const list = createElement("div", { className: "dashboard-list" });
+  if (!items.length) {
+    list.append(createElement("p", {
+      className: "dashboard-card-empty",
+      text: emptyText,
+    }));
+    return list;
+  }
+
+  for (const item of items) {
+    const row = createElement("div", { className: "dashboard-list-item" });
+    const description = createElement("div", { className: "dashboard-list-description" });
+    description.append(
+      createElement("strong", { text: item.title }),
+      createElement("small", { text: item.subtitle }),
+    );
+    row.append(description);
+    if (item.amount) {
+      row.append(createElement("span", {
+        className: "dashboard-list-amount",
+        text: item.amount,
+      }));
+    }
+    list.append(row);
+  }
+  return list;
+}
+
+async function createDashboardView() {
   const dashboard = createElement("section", {
     className: "dashboard-view",
   });
@@ -393,7 +477,7 @@ function createDashboardView() {
 
   const dashboardWelcome = createElement("p", {
     className: "page-description",
-    text: t("dashboard.welcome"),
+    text: t(isAdmin() ? "dashboard.adminIntro" : "dashboard.welcome"),
   });
 
   dashboardHeader.append(
@@ -401,57 +485,162 @@ function createDashboardView() {
     dashboardWelcome,
   );
 
-  const dashboardCards = createElement("div", {
-    className: "dashboard-cards",
-  });
-
-  const balanceCard = createElement("article", {
-    className: "dashboard-card",
-  });
-
-  const balanceTitle = createElement("h2", {
-    className: "dashboard-card-title",
-    text: t("dashboard.balance"),
-  });
-
-  const balanceValue = createElement("div", {
-    className: "dashboard-card-value",
-    text: "—",
-  });
-
-  balanceCard.append(
-    balanceTitle,
-    balanceValue,
-  );
-
-  const activityCard = createElement("article", {
-    className: "dashboard-card dashboard-card-wide",
-  });
-
-  const activityTitle = createElement("h2", {
-    className: "dashboard-card-title",
-    text: t("dashboard.recentActivity"),
-  });
-
-  const activityEmpty = createElement("p", {
-    className: "dashboard-card-empty",
-    text: t("common.noData"),
-  });
-
-  activityCard.append(
-    activityTitle,
-    activityEmpty,
-  );
-
-  dashboardCards.append(
-    balanceCard,
-    activityCard,
-  );
-
   dashboard.append(
     dashboardHeader,
-    dashboardCards,
   );
+
+  const dashboardContent = createElement("div", {
+    className: "dashboard-content",
+  });
+  dashboardContent.append(createElement("p", {
+    className: "content-panel-message",
+    text: t("common.loading"),
+  }));
+  dashboard.append(dashboardContent);
+
+  try {
+    const classResult = await getClasses();
+    const classes = classResult?.data?.classes ?? [];
+    if (!isAdmin() && classes.length) {
+      dashboardWelcome.textContent = t("dashboard.managerIntro");
+    }
+    const [parentResult, financeResults, usersResult] = await Promise.all([
+      getMyFinances(),
+      Promise.all(classes.map(async (classItem) => {
+        const result = await getFinances(classItem.id);
+        return result?.data ?? null;
+      })),
+      isAdmin() ? getUsers(false) : Promise.resolve(null),
+    ]);
+    const parentData = parentResult?.data ?? { children: [], charges: [] };
+    const managedFinances = financeResults.filter(Boolean);
+    const managedCharges = managedFinances.flatMap((finance) =>
+      (finance.charges ?? []).filter((charge) => charge.status === "PENDING")
+        .map((charge) => ({
+          ...charge,
+          currency: finance.class?.currency ?? "HUF",
+          currencyDecimals: finance.class?.currencyDecimals ?? 0,
+          className: finance.class?.displayName ?? "",
+        })),
+    );
+    const metricGrid = createElement("div", { className: "dashboard-metrics" });
+
+    if (classes.length) {
+      const currencyBalances = managedFinances.map((finance) => ({
+        amount: finance.class?.balance ?? 0,
+        currency: finance.class?.currency ?? "HUF",
+        currencyDecimals: finance.class?.currencyDecimals ?? 0,
+      }));
+      metricGrid.append(
+        createDashboardMetric(t("dashboard.activeClasses"), String(classes.length)),
+        createDashboardMetric(t("dashboard.classBalances"), sumByCurrency(currencyBalances)),
+        createDashboardMetric(t("dashboard.awaitingPayments"), sumByCurrency(managedCharges)),
+        createDashboardMetric(t("dashboard.openPaymentItems"), String(managedCharges.length)),
+      );
+    }
+
+    const parentCharges = (parentData.charges ?? []).filter((charge) => charge.status === "PENDING");
+    if (parentData.children?.length || classes.length === 0) {
+      metricGrid.append(
+        createDashboardMetric(t("dashboard.myChildren"), String(parentData.children?.length ?? 0)),
+        createDashboardMetric(t("dashboard.paymentsToMake"), sumByCurrency(parentCharges)),
+        createDashboardMetric(t("dashboard.openPaymentItems"), String(parentCharges.length)),
+      );
+      if (classes.length === 0) {
+        dashboardWelcome.textContent = t("dashboard.welcome");
+      }
+    }
+
+    if (!metricGrid.childElementCount) {
+      metricGrid.append(createDashboardMetric(t("dashboard.myChildren"), "0"));
+    }
+    dashboardContent.replaceChildren(metricGrid);
+
+    const panels = createElement("div", { className: "dashboard-panels" });
+    if (isAdmin()) {
+      const users = usersResult?.data?.users ?? [];
+      const unassignedUsers = users.filter((user) =>
+        user.active && !(user.roles ?? []).some((role) => role.role === "ADMIN") && (user.children?.length ?? 0) === 0,
+      );
+      const assignmentList = createDashboardList(
+        unassignedUsers.slice(0, 6).map((user) => ({
+          title: user.email,
+          subtitle: t("dashboard.noChildAssigned"),
+          amount: "",
+        })),
+        t("dashboard.noUsersNeedAssignment"),
+      );
+      const assignmentPanel = createDashboardPanel(t("dashboard.usersWithoutChildren"), assignmentList);
+      if (unassignedUsers.length) {
+        const manageUsers = createElement("button", {
+          className: "button button-secondary dashboard-panel-action",
+          text: t("dashboard.manageUsers"),
+          attributes: { type: "button" },
+        });
+        manageUsers.addEventListener("click", () => setView("users"));
+        assignmentPanel.append(manageUsers);
+      }
+      panels.append(assignmentPanel);
+    }
+
+    const classSummaryItems = managedFinances.map((finance) => ({
+      title: `${finance.class?.code ?? ""} · ${finance.class?.displayName ?? ""}`,
+      subtitle: t("dashboard.classBalance"),
+      amount: formatMoney(
+        finance.class?.balance ?? 0,
+        finance.class?.currency ?? "HUF",
+        finance.class?.currencyDecimals ?? 0,
+      ),
+    }));
+    if (classSummaryItems.length) {
+      panels.append(createDashboardPanel(
+        t("dashboard.classOverview"),
+        createDashboardList(classSummaryItems, t("common.noData")),
+      ));
+    }
+
+    const childNames = new Map((parentData.children ?? []).map((child) => [child.id, child.name]));
+    const upcomingParentCharges = parentCharges
+      .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))
+      .slice(0, 6)
+      .map((charge) => ({
+        title: `${childNames.get(charge.childId) ?? ""} · ${charge.title}`,
+        subtitle: `${t("charges.dueDate")}: ${charge.dueDate}`,
+        amount: formatMoney(charge.amount, charge.currency, charge.currencyDecimals),
+      }));
+    if (parentData.children?.length || classes.length === 0) {
+      panels.append(createDashboardPanel(
+        t("dashboard.upcomingPayments"),
+        createDashboardList(upcomingParentCharges, t("dashboard.noUpcomingPayments")),
+      ));
+    } else if (managedCharges.length) {
+      const upcomingManagedCharges = managedCharges
+        .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))
+        .slice(0, 6)
+        .map((charge) => ({
+          title: `${charge.className} · ${charge.title}`,
+          subtitle: `${t("charges.dueDate")}: ${charge.dueDate}`,
+          amount: formatMoney(charge.amount, charge.currency, charge.currencyDecimals),
+        }));
+      panels.append(createDashboardPanel(
+        t("dashboard.upcomingPayments"),
+        createDashboardList(upcomingManagedCharges, t("dashboard.noUpcomingPayments")),
+      ));
+    }
+    if (!panels.childElementCount) {
+      panels.append(createDashboardPanel(
+        t("dashboard.upcomingPayments"),
+        createDashboardList([], t("dashboard.noUpcomingPayments")),
+      ));
+    }
+    dashboardContent.append(panels);
+  } catch (error) {
+    console.error("Failed to load dashboard:", error);
+    dashboardContent.replaceChildren(createElement("p", {
+      className: "content-panel-message error",
+      text: error.message || t("messages.operationFailed"),
+    }));
+  }
 
   return dashboard;
 }
@@ -3762,10 +3951,76 @@ async function createUsersView() {
   const header = createElement("div", { className: "content-view-header" });
   const title = createElement("h1", { className: "page-title", text: t("users.title") });
   const description = createElement("p", { className: "page-description", text: t("users.description") });
-  header.replaceChildren(title, description);
+  const headerText = createElement("div");
+  headerText.append(title, description);
+  const headerActions = createElement("div", { className: "content-view-actions" });
+  const createUserButton = createElement("button", {
+    className: "button button-primary",
+    text: t("users.create"),
+    attributes: { type: "button" },
+  });
+  headerActions.append(createUserButton);
+  header.append(headerText, headerActions);
+  const createUserFormHost = createElement("div");
   const content = createElement("div", { className: "content-panel" });
   content.append(createElement("p", { className: "content-panel-message", text: t("common.loading") }));
-  section.append(header, content);
+  section.append(header, createUserFormHost, content);
+  let autoEditUserId = null;
+
+  createUserButton.addEventListener("click", () => {
+    if (createUserFormHost.childElementCount) {
+      createUserFormHost.replaceChildren();
+      return;
+    }
+    const createForm = createElement("form", { className: "user-admin-editor user-create-form" });
+    createForm.append(
+      createElement("h2", { className: "section-title", text: t("users.create") }),
+      createElement("p", { className: "page-description", text: t("users.precreateHelp") }),
+    );
+    const emailLabel = createElement("label", { text: t("users.email"), attributes: { for: "precreate-user-email" } });
+    const emailInput = createElement("input", {
+      attributes: {
+        id: "precreate-user-email",
+        name: "email",
+        type: "email",
+        required: "required",
+        maxlength: "254",
+        autocomplete: "email",
+        placeholder: t("users.emailPlaceholder"),
+      },
+    });
+    const emailGroup = createElement("div", { className: "form-group" });
+    emailGroup.append(emailLabel, emailInput);
+    const formActions = createElement("div", { className: "user-create-actions" });
+    const saveUserButton = createElement("button", {
+      className: "button button-primary",
+      text: t("users.create"),
+      attributes: { type: "submit" },
+    });
+    const cancelCreateButton = createElement("button", {
+      className: "button button-secondary",
+      text: t("common.cancel"),
+      attributes: { type: "button" },
+    });
+    cancelCreateButton.addEventListener("click", () => createUserFormHost.replaceChildren());
+    formActions.append(saveUserButton, cancelCreateButton);
+    createForm.append(emailGroup, formActions);
+    createForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      saveUserButton.disabled = true;
+      try {
+        const result = await createUser(emailInput.value);
+        autoEditUserId = result?.data?.user?.id ?? null;
+        createUserFormHost.replaceChildren();
+        await load();
+      } catch (error) {
+        window.alert(error.message || t("messages.operationFailed"));
+        saveUserButton.disabled = false;
+      }
+    });
+    createUserFormHost.replaceChildren(createForm);
+    emailInput.focus();
+  });
 
   const load = async () => {
     try {
@@ -3807,6 +4062,10 @@ async function createUsersView() {
         }
         row.append(actionCell);
         tbody.append(row);
+        if (user.id === autoEditUserId) {
+          autoEditUserId = null;
+          openEditor(user, classes, row, tbody);
+        }
       }
       if (!users.length) {
         content.replaceChildren(createElement("p", { className: "content-panel-message", text: t("common.noData") }));
@@ -4023,7 +4282,7 @@ async function createMain(
 
   if (currentView === "dashboard") {
     main.append(
-      createDashboardView(),
+      await createDashboardView(),
     );
   } else if (
     currentView === "classes"
