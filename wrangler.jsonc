@@ -39,13 +39,12 @@
     }
   },
 	"env": {
-	  "masodik": {
+	  "second": {
 	    "name": "classmoney-v2",
 	    "d1_databases": [
 	      {
 		"binding": "DB",
 		"database_name": "classmoney-v2",
-		"database_id": "IDE_AZ_UJ_D1_DATABASE_ID",
 		"remote": true
 	      }
 	    ],
