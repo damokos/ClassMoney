@@ -38,4 +38,27 @@
       "persist": true
     }
   }
+},
+"env": {
+  "masodik": {
+    "name": "classmoney-v2",
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "classmoney-v2",
+        "database_id": "IDE_AZ_UJ_D1_DATABASE_ID",
+        "remote": true
+      }
+    ],
+    "r2_buckets": [
+      {
+        "binding": "R2",
+        "bucket_name": "classmoney-v2",
+        "remote": true
+      }
+    ],
+    "triggers": {
+      "crons": ["*/5 * * * *"]
+    }
+  }
 }
