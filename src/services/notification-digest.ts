@@ -1,5 +1,5 @@
 import { createNotificationEvents } from "../db/repositories/notifications";
-import { loadDigestTemplates, renderDigest, type DigestEvent } from "./digest-renderer";
+import { loadDigestTemplates, renderDigest } from "./digest-renderer";
 import type { Env } from "../types/env";
 
 function localClock(date: Date, timezone: string): string {
@@ -51,24 +51,39 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
     LEFT JOIN notification_preferences p
       ON p.user_id = e.user_id AND p.notification_type_id = e.notification_type_id
     WHERE e.user_id = ? AND e.status IN ('PENDING', 'FAILED')
+      AND (e.delivery_claimed_at IS NULL OR e.delivery_claimed_at < ?)
       AND COALESCE(p.enabled, 1) = 1
     ORDER BY e.created_at, e.id
     LIMIT 100
-  `).bind(user.id).all<{ id: number; code: string; classId: number | null; entityType: string | null; payload: string | null }>();
+  `).bind(user.id, new Date(currentTime.getTime() - 30 * 60 * 1000).toISOString())
+    .all<{ id: number; code: string; classId: number | null; entityType: string | null; payload: string | null }>();
   if (!events.results.length) return;
-  const digestEvents: DigestEvent[] = events.results.map((event) => ({
+  const claimedEvents: typeof events.results = [];
+  const claimedAt = currentTime.toISOString();
+  const staleBefore = new Date(currentTime.getTime() - 30 * 60 * 1000).toISOString();
+  for (const event of events.results) {
+    const claim = await env.DB.prepare(`
+      UPDATE notification_events
+      SET delivery_claimed_at = ?
+      WHERE id = ? AND user_id = ? AND status IN ('PENDING', 'FAILED')
+        AND (delivery_claimed_at IS NULL OR delivery_claimed_at < ?)
+    `).bind(claimedAt, event.id, user.id, staleBefore).run();
+    if ((claim.meta?.changes ?? 0) > 0) claimedEvents.push(event);
+  }
+  if (!claimedEvents.length) return;
+  const assignedRoles = await env.DB.prepare("SELECT role, class_id FROM user_roles WHERE user_id = ?").bind(user.id)
+    .all<{ role: string; class_id: number | null }>();
+  const isGlobalAdmin = assignedRoles.results.some((assignment) => assignment.role === "ADMIN" && assignment.class_id === null);
+  const claimedDigestEvents = claimedEvents.map((event) => ({
     id: event.id,
     code: event.code,
     classId: event.classId,
     entityType: event.entityType ?? "",
     payload: event.payload ? JSON.parse(event.payload) as Record<string, unknown> : {},
   }));
-  const assignedRoles = await env.DB.prepare("SELECT role, class_id FROM user_roles WHERE user_id = ?").bind(user.id)
-    .all<{ role: string; class_id: number | null }>();
-  const isGlobalAdmin = assignedRoles.results.some((assignment) => assignment.role === "ADMIN" && assignment.class_id === null);
-  const hasNewUsers = digestEvents.some((event) => event.code === "USER_CREATED");
+  const hasNewUsers = claimedDigestEvents.some((event) => event.code === "USER_CREATED");
   const relevantRoles = new Set(assignedRoles.results
-    .filter((assignment) => assignment.class_id !== null && digestEvents.some((event) => event.classId === assignment.class_id))
+    .filter((assignment) => assignment.class_id !== null && claimedDigestEvents.some((event) => event.classId === assignment.class_id))
     .map((assignment) => assignment.role));
   const role = isGlobalAdmin && hasNewUsers
     ? "admin"
@@ -76,12 +91,12 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
     ? "combined"
     : relevantRoles.has("TREASURER") ? "treasurer"
       : relevantRoles.has("PARENT_REPRESENTATIVE") ? "szmk" : "parent";
-  const childNames = [...new Set(digestEvents.map((event) => event.payload.childName)
+  const childNames = [...new Set(claimedDigestEvents.map((event) => event.payload.childName)
     .filter((name): name is string => typeof name === "string"))];
   const rawRecipientName = childNames.length === 1 ? childNames[0] : childNames.length > 1 ? "gyermekeid" : null;
   const recipientName = rawRecipientName?.replace(/[\r\n]+/g, " ").slice(0, 80) ?? null;
   const templates = await loadDigestTemplates(env.ASSETS);
-  const digest = renderDigest({ templates, role, recipientName, events: digestEvents, appUrl: env.APP_URL });
+  const digest = renderDigest({ templates, role, recipientName, events: claimedDigestEvents, appUrl: env.APP_URL });
   const now = new Date().toISOString();
   try {
     const controller = new AbortController();
@@ -113,17 +128,19 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
       const details = (await response.text()).slice(0, 400);
       throw new Error(`Brevo API returned ${response.status}: ${details}`);
     }
-    await env.DB.batch(events.results.map((event) => env.DB.prepare(`
-      UPDATE notification_events SET status = 'SENT', sent_at = ?, failed_at = NULL, error_message = NULL
-      WHERE id = ? AND user_id = ? AND status IN ('PENDING', 'FAILED')
-    `).bind(now, event.id, user.id)));
+    await env.DB.batch(claimedEvents.map((event) => env.DB.prepare(`
+      UPDATE notification_events SET status = 'SENT', sent_at = ?, failed_at = NULL, error_message = NULL,
+        delivery_claimed_at = NULL
+      WHERE id = ? AND user_id = ? AND delivery_claimed_at = ?
+    `).bind(now, event.id, user.id, claimedAt)));
   } catch (error) {
     const message = String(error instanceof Error ? error.message : error).slice(0, 500);
     console.error("Notification digest delivery failed", user.id, message);
-    await env.DB.batch(events.results.map((event) => env.DB.prepare(`
-      UPDATE notification_events SET status = 'FAILED', failed_at = ?, error_message = ?
-      WHERE id = ? AND user_id = ? AND status IN ('PENDING', 'FAILED')
-    `).bind(now, message, event.id, user.id)));
+    await env.DB.batch(claimedEvents.map((event) => env.DB.prepare(`
+      UPDATE notification_events SET status = 'FAILED', failed_at = ?, error_message = ?,
+        delivery_claimed_at = NULL
+      WHERE id = ? AND user_id = ? AND delivery_claimed_at = ?
+    `).bind(now, message, event.id, user.id, claimedAt)));
   }
 }
 
