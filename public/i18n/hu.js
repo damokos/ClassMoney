@@ -108,6 +108,9 @@ const hu = {
     edit: "Osztály szerkesztése",
     archive: "Osztály archiválása",
     restore: "Osztály visszaállítása",
+    institutionHeading: "Intézmény megnevezése",
+    institutionName: "Iskola vagy óvoda neve",
+    institutionHelp: "Ez a név minden felhasználónál megjelenik a fejlécben, így több intézményi hozzáférés esetén is látható, melyik ClassMoney-t használod.",
   },
 
   children: {

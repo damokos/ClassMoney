@@ -8,6 +8,8 @@ import {
 
 import {
   getMe,
+  getInstitutionName,
+  saveInstitutionName,
   getClasses,
   createClass,
   updateClass,
@@ -42,6 +44,7 @@ import {
 const app = document.getElementById("app");
 
 let currentUser = null;
+let currentInstitutionName = "";
 let classesIncludeArchived = false;
 let childrenClassId = null;
 let childrenIncludeInactive = false;
@@ -209,8 +212,12 @@ function createHeader() {
     className: "app-header",
   });
 
-  const brand = createElement("div", {
+  const brand = createElement("a", {
     className: "app-brand",
+    attributes: {
+      href: "#dashboard",
+      "aria-label": `${t("common.appName")}${currentInstitutionName ? ` - ${currentInstitutionName}` : ""} – ${t("dashboard.title")}`,
+    },
   });
 
   const brandIcon = createElement("img", {
@@ -224,7 +231,7 @@ function createHeader() {
 
   const brandTitle = createElement("span", {
     className: "app-brand-title",
-    text: t("common.appName"),
+    text: `${t("common.appName")}${currentInstitutionName ? ` - ${currentInstitutionName}` : ""}`,
   });
 
   brand.append(brandIcon, brandTitle);
@@ -1200,7 +1207,62 @@ async function createClassesView() {
     }),
   );
 
-  section.append(header, content);
+  section.append(header);
+
+  if (isAdmin()) {
+    const institutionForm = createElement("form", {
+      className: "institution-name-panel",
+    });
+    institutionForm.append(
+      createElement("h2", {
+        className: "section-title",
+        text: t("classes.institutionHeading"),
+      }),
+      createElement("p", {
+        className: "page-description",
+        text: t("classes.institutionHelp"),
+      }),
+    );
+    const institutionLabel = createElement("label", {
+      text: t("classes.institutionName"),
+      attributes: { for: "institution-name" },
+    });
+    const institutionInput = createElement("input", {
+      attributes: {
+        id: "institution-name",
+        name: "institutionName",
+        type: "text",
+        maxlength: "120",
+        autocomplete: "organization",
+        value: currentInstitutionName,
+      },
+    });
+    const institutionField = createElement("div", { className: "form-group" });
+    institutionField.append(institutionLabel, institutionInput);
+    const saveInstitutionButton = createElement("button", {
+      className: "button button-primary",
+      text: t("common.save"),
+      attributes: { type: "submit" },
+    });
+    const institutionActions = createElement("div", { className: "institution-name-actions" });
+    institutionActions.append(saveInstitutionButton);
+    institutionForm.append(institutionField, institutionActions);
+    institutionForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      saveInstitutionButton.disabled = true;
+      try {
+        const result = await saveInstitutionName(institutionInput.value);
+        currentInstitutionName = result?.data?.name ?? "";
+        await render();
+      } catch (error) {
+        window.alert(error.message || t("messages.operationFailed"));
+        saveInstitutionButton.disabled = false;
+      }
+    });
+    section.append(institutionForm);
+  }
+
+  section.append(content);
 
   const reload = async () => {
     await render();
@@ -4381,6 +4443,13 @@ async function startApp() {
       throw new Error(
         "Authenticated user information is unavailable.",
       );
+    }
+
+    try {
+      const institutionResult = await getInstitutionName();
+      currentInstitutionName = institutionResult?.data?.name ?? "";
+    } catch (error) {
+      console.warn("Institution name is not available yet:", error);
     }
 
     const myFinances = await getMyFinances();

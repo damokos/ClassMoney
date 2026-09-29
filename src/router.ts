@@ -17,6 +17,7 @@ import { getUserHandler } from "./api/users/get";
 import { updateUserHandler } from "./api/users/update";
 import { addUserRoleHandler, removeUserRoleHandler } from "./api/users/roles";
 import { updateUserChildrenHandler } from "./api/users/children";
+import { getInstitutionNameHandler, setInstitutionNameHandler } from "./api/settings/institution-name";
 import { getNotificationsHandler, getNotificationSettingsHandler, saveNotificationSettingsHandler, markNotificationReadHandler, markAllNotificationsReadHandler } from "./api/notifications";
 import { payChargeHandler } from "./api/charges/pay";
 import { createExpenseHandler } from "./api/expenses/create";
@@ -53,6 +54,11 @@ export async function router(
         env,
         authContext,
       );
+    }
+
+    if (pathname === "/api/settings/institution-name") {
+      if (method === "GET") return getInstitutionNameHandler(request, env, authContext);
+      if (method === "PUT") return setInstitutionNameHandler(request, env, authContext);
     }
 
     if (

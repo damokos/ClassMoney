@@ -35,6 +35,18 @@ export async function getMe() {
   return request("/api/me");
 }
 
+export async function getInstitutionName() {
+  return request("/api/settings/institution-name");
+}
+
+export async function saveInstitutionName(name) {
+  return request("/api/settings/institution-name", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
 export async function getUsers(includeInactive = true) {
   return request(`/api/users${includeInactive ? "?includeInactive=true" : ""}`);
 }

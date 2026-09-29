@@ -108,6 +108,9 @@ const en = {
     edit: "Edit class",
     archive: "Archive class",
     restore: "Restore class",
+    institutionHeading: "Institution name",
+    institutionName: "School or kindergarten name",
+    institutionHelp: "This name appears in the header for all users, making it clear which ClassMoney installation they are using.",
   },
 
   children: {

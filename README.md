@@ -264,6 +264,8 @@ The initial schema contains the core entities required for users, classes, child
 
 Database changes will be introduced through versioned migrations.
 
+The `0005_institution_name.sql` migration adds the installation-wide institution name setting. A global administrator can set it on the Classes page; the name is then shown beside ClassMoney in the header for all users.
+
 ### Notifications and daily email digest
 
 The notification inbox is available to every authenticated user. Events are created for the relevant class roles and linked children when charges or expenses are created, cancelled, paid, or approach their due date. Users can mark inbox items as read and manage daily digest preferences, including event types, send time, and IANA timezone.

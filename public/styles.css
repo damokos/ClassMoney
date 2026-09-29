@@ -95,8 +95,17 @@ button:disabled {
 
 .app-brand {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 10px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-brand:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 4px;
 }
 
 .app-brand-icon {
@@ -107,10 +116,14 @@ button:disabled {
 }
 
 .app-brand-title {
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-primary);
   font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-header-actions {
@@ -491,6 +504,30 @@ button:disabled {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.institution-name-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-small);
+}
+
+.institution-name-panel .section-title {
+  margin: 0;
+}
+
+.institution-name-panel .page-description {
+  margin: -8px 0 0;
+}
+
+.institution-name-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .user-role-list,
