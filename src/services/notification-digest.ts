@@ -59,18 +59,15 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
   `).bind(user.id, new Date(currentTime.getTime() - 30 * 60 * 1000).toISOString())
     .all<{ id: number; code: string; classId: number | null; entityType: string | null; entityId: number | null; payload: string | null }>();
   if (!events.results.length) return;
-  const claimedEvents: typeof events.results = [];
   const claimedAt = currentTime.toISOString();
   const staleBefore = new Date(currentTime.getTime() - 30 * 60 * 1000).toISOString();
-  for (const event of events.results) {
-    const claim = await env.DB.prepare(`
+  const claimResults = await env.DB.batch(events.results.map((event) => env.DB.prepare(`
       UPDATE notification_events
       SET delivery_claimed_at = ?
       WHERE id = ? AND user_id = ? AND status IN ('PENDING', 'FAILED')
         AND (delivery_claimed_at IS NULL OR delivery_claimed_at < ?)
-    `).bind(claimedAt, event.id, user.id, staleBefore).run();
-    if ((claim.meta?.changes ?? 0) > 0) claimedEvents.push(event);
-  }
+    `).bind(claimedAt, event.id, user.id, staleBefore)));
+  const claimedEvents = events.results.filter((_, index) => (claimResults[index].meta?.changes ?? 0) > 0);
   if (!claimedEvents.length) return;
   const assignedRoles = await env.DB.prepare("SELECT role, class_id FROM user_roles WHERE user_id = ?").bind(user.id)
     .all<{ role: string; class_id: number | null }>();
@@ -127,7 +124,6 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
           subject: digest.subject,
           textContent: digest.text,
           htmlContent: digest.html,
-          trackClicks: false,
           tags: ["classmoney-digest"],
         }),
         signal: controller.signal,

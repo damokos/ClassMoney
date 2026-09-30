@@ -174,6 +174,15 @@ export async function removeUserRoleHandler(
     body as Record<string, unknown>,
   );
 
+  if (role === "ADMIN" && classId === null) {
+    const counts = await getDb(env).prepare(`
+      SELECT SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS own_count, COUNT(*) AS total_count
+      FROM user_roles WHERE role = 'ADMIN' AND class_id IS NULL
+    `).bind(id).first<{ own_count: number | null; total_count: number }>();
+    if ((counts?.own_count ?? 0) > 0 && counts?.total_count === 1) {
+      throw new ConflictError("Cannot remove the last global ADMIN");
+    }
+  }
   if (classId !== null && (role === "TREASURER" || role === "PARENT_REPRESENTATIVE")) {
     const counts = await getDb(env).prepare(`
       SELECT
@@ -186,12 +195,15 @@ export async function removeUserRoleHandler(
     }
   }
 
-  const removed = await removeUserRole(
-    getDb(env),
-    id,
-    role,
-    classId,
-  );
+  let removed: boolean;
+  try {
+    removed = await removeUserRole(getDb(env), id, role, classId);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Cannot remove the last required role")) {
+      throw new ConflictError("Cannot remove the last ADMIN, Treasurer, or Parent Representative assignment");
+    }
+    throw error;
+  }
 
   if (!removed) {
     throw new NotFoundError("Role assignment not found");

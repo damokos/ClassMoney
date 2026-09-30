@@ -5,6 +5,8 @@ import { getDb } from "../../db/client";
 import { createChild } from "../../db/repositories/children";
 import { BadRequestError, NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
+import { getClassById } from "../../db/repositories/classes";
+import { requireActiveClass } from "../../services/class-state";
 
 export async function createChildHandler(
   request: Request,
@@ -26,6 +28,7 @@ export async function createChildHandler(
     classId,
     ["PARENT_REPRESENTATIVE", "TREASURER"],
   );
+  requireActiveClass(await getClassById(getDb(env), classId));
 
   let body: unknown;
 

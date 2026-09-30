@@ -9,6 +9,8 @@ import {
 import { NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import { cancelFinancialTransaction } from "../../services/financial-transactions";
+import { getClassById } from "../../db/repositories/classes";
+import { requireActiveClass } from "../../services/class-state";
 
 export async function cancelFinancialTransactionHandler(
   request: Request,
@@ -45,6 +47,7 @@ export async function cancelFinancialTransactionHandler(
     transaction.classId,
     ["PARENT_REPRESENTATIVE", "TREASURER"],
   );
+  requireActiveClass(await getClassById(db, transaction.classId));
 
   const cancelledTransaction =
     await cancelFinancialTransaction(

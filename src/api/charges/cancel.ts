@@ -66,6 +66,7 @@ export async function cancelChargeHandler(
   if (!classItem) {
     throw new NotFoundError("Class not found");
   }
+  if (!classItem.active) throw new ConflictError("Archived classes are read-only");
 
   if (charge.status === "CANCELLED") {
     throw new ConflictError(
@@ -118,11 +119,21 @@ export async function cancelChargeHandler(
 
       db
         .prepare(`
+          INSERT INTO balance_transactions (
+            class_id, amount, transaction_type, reference_type, reference_id,
+            description, created_at, created_by
+          )
+          SELECT ?, ?, 'CHARGE_CANCELLED', 'charge', ?, ?, ?, ?
+          WHERE changes() = 1
+        `)
+        .bind(charge.classId, -charge.amount, chargeId, charge.title, now, authContext.user.id),
+      db
+        .prepare(`
           UPDATE classes
           SET
             balance = balance - ?,
             updated_at = ?
-          WHERE id = ?
+          WHERE id = ? AND changes() = 1
         `)
         .bind(
           charge.amount,
@@ -130,37 +141,6 @@ export async function cancelChargeHandler(
           charge.classId,
         ),
 
-      db
-        .prepare(`
-          INSERT INTO balance_transactions (
-            class_id,
-            amount,
-            transaction_type,
-            reference_type,
-            reference_id,
-            description,
-            created_at,
-            created_by
-          )
-          VALUES (
-            ?,
-            ?,
-            'CHARGE_CANCELLED',
-            'charge',
-            ?,
-            ?,
-            ?,
-            ?
-          )
-        `)
-        .bind(
-          charge.classId,
-          -charge.amount,
-          chargeId,
-          charge.title,
-          now,
-          authContext.user.id,
-        ),
     ]);
 
     if (!results[0].meta.changes) {

@@ -10,6 +10,9 @@ import {
 } from "../../auth/authorization";
 import { BadRequestError } from "../../http/errors";
 import { successResponse } from "../../http/response";
+import { getClassById } from "../../db/repositories/classes";
+import { getDb } from "../../db/client";
+import { requireActiveClass } from "../../services/class-state";
 
 export async function createFinancialTransactionHandler(
   request: Request,
@@ -30,6 +33,9 @@ export async function createFinancialTransactionHandler(
   }
 
   const classId = Number(match[1]);
+  const db = getDb(env);
+  requireAdminOrClassRole(authContext.user, classId, ["PARENT_REPRESENTATIVE", "TREASURER"]);
+  requireActiveClass(await getClassById(db, classId));
 
   let body: unknown;
 
@@ -68,7 +74,7 @@ export async function createFinancialTransactionHandler(
 
   if (
     typeof input.amount !== "number" ||
-    !Number.isInteger(input.amount) ||
+    !Number.isSafeInteger(input.amount) ||
     input.amount === 0
   ) {
     throw new BadRequestError(
@@ -123,14 +129,6 @@ export async function createFinancialTransactionHandler(
       "Receipt key requires a receipt MIME type",
     );
   }
-
-  requireAdminOrClassRole(
-    authContext.user,
-    classId,
-    ["PARENT_REPRESENTATIVE", "TREASURER"],
-  );
-
-  const db = env.DB;
 
   const category =
     await getFinancialTransactionCategoryById(

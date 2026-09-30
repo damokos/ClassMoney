@@ -5,6 +5,7 @@ import { listClassesHandler } from "./api/classes/list";
 import { getClassHandler } from "./api/classes/get";
 import { createClassHandler } from "./api/classes/create";
 import { updateClassHandler } from "./api/classes/update";
+import { archiveClassHandler } from "./api/classes/archive";
 import { getFinancesHandler } from "./api/finances/get";
 import { myFinancesHandler } from "./api/my/finances";
 import { createChildHandler } from "./api/children/create";
@@ -27,12 +28,21 @@ import { cancelExpenseHandler } from "./api/expenses/cancel";
 import { createFinancialTransactionHandler } from "./api/financial-transactions/create";
 import { payFinancialTransactionHandler } from "./api/financial-transactions/pay";
 import { cancelFinancialTransactionHandler } from "./api/financial-transactions/cancel";
-import { AppError } from "./http/errors";
+import { AppError, ForbiddenError } from "./http/errors";
 import { errorResponse } from "./http/response";
 import { createChargeHandler } from "./api/charges/create";
 import { cancelChargeHandler } from "./api/charges/cancel";
 
-export async function router(
+function enforceSameOriginMutation(request: Request, url: URL, pathname: string, method: string): void {
+  if (!pathname.startsWith("/api/") || !["POST", "PUT", "PATCH", "DELETE"].includes(method)) return;
+  const origin = request.headers.get("Origin");
+  const fetchSite = request.headers.get("Sec-Fetch-Site");
+  if (origin !== url.origin || (fetchSite !== null && fetchSite !== "same-origin")) {
+    throw new ForbiddenError("Cross-origin API mutations are not allowed");
+  }
+}
+
+async function routeRequest(
   request: Request,
   env: Env,
   ctx: ExecutionContext,
@@ -41,6 +51,8 @@ export async function router(
     const url = new URL(request.url);
     const pathname = url.pathname;
     const method = request.method;
+
+    enforceSameOriginMutation(request, url, pathname, method);
 
     const authContext = await getAuthContext(
       request,
@@ -99,8 +111,6 @@ export async function router(
     );
 
     if (classMatch) {
-      const classId = Number(classMatch[1]);
-
       if (method === "GET") {
         return getClassHandler(
           request,
@@ -115,6 +125,10 @@ export async function router(
           env,
           authContext,
         );
+      }
+
+      if (method === "POST") {
+        return archiveClassHandler(request, env, authContext);
       }
     }
 
@@ -388,6 +402,18 @@ export async function router(
       "NOT_FOUND",
       "Not found",
     );
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function router(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  try {
+    return await routeRequest(request, env, ctx);
   } catch (error) {
     return errorResponse(error);
   }

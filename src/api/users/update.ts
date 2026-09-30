@@ -57,7 +57,8 @@ export async function updateUserHandler(
     } catch (error) {
       if (
         error instanceof Error &&
-        error.message.startsWith("Cannot deactivate the last")
+        (error.message.startsWith("Cannot deactivate the last") ||
+          error.message.includes("Cannot remove the last required role"))
       ) {
         throw new ConflictError(error.message);
       }

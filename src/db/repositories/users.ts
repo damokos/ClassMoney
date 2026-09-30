@@ -1,6 +1,5 @@
 import type { User } from "../../domain/users/types";
 import type { UserRole } from "../../auth/types";
-import { getUserRoles } from "./user-roles";
 
 interface UserRow {
   id: number;
@@ -83,45 +82,48 @@ export async function listUsers(
   db: D1Database,
   includeInactive = false,
 ): Promise<Array<User & { roles: UserRole[] }>> {
-  const query = includeInactive
-    ? `
-      SELECT ${USER_COLUMNS}
-      FROM users
-      ORDER BY email COLLATE NOCASE, id
-    `
-    : `
-      SELECT ${USER_COLUMNS}
-      FROM users
-      WHERE active = 1
-      ORDER BY email COLLATE NOCASE, id
-    `;
-
-  const result = await db
-    .prepare(query)
-    .all<UserRow>();
-
-  return Promise.all(result.results.map(async (row) => ({
-    ...mapUser(row),
-    roles: await getUserRoles(db, row.id),
-  })));
+  return (await listAdminUsers(db, includeInactive)).map(({ children: _children, ...user }) => user);
 }
 
 export async function listAdminUsers(
   db: D1Database,
   includeInactive = true,
 ): Promise<Array<User & { roles: UserRole[]; children: Array<{ id: number; name: string; classId: number; className: string }> }>> {
-  const users = await listUsers(db, includeInactive);
-  return Promise.all(users.map(async (user) => {
-    const children = await db.prepare(`
+  const usersResult = await db.prepare(includeInactive
+    ? `SELECT ${USER_COLUMNS} FROM users ORDER BY email COLLATE NOCASE, id`
+    : `SELECT ${USER_COLUMNS} FROM users WHERE active = 1 ORDER BY email COLLATE NOCASE, id`
+  ).all<UserRow>();
+  if (!usersResult.results.length) return [];
+  const [rolesResult, childrenResult] = await Promise.all([
+    db.prepare(`SELECT user_roles.user_id, role, class_id FROM user_roles INNER JOIN users ON users.id = user_roles.user_id ${includeInactive ? "" : "WHERE users.active = 1"} ORDER BY role, class_id`)
+      .all<{ user_id: number; role: UserRole["role"]; class_id: number | null }>(),
+    db.prepare(`
       SELECT children.id, children.name, children.class_id AS classId,
-        classes.display_name AS className
+        classes.display_name AS className, user_children.user_id AS userId
       FROM user_children
+      INNER JOIN users ON users.id = user_children.user_id
       INNER JOIN children ON children.id = user_children.child_id
       INNER JOIN classes ON classes.id = children.class_id
-      WHERE user_children.user_id = ?
+      WHERE 1 = 1 ${includeInactive ? "" : "AND users.active = 1"}
       ORDER BY classes.display_name COLLATE NOCASE, children.name COLLATE NOCASE
-    `).bind(user.id).all<{ id: number; name: string; classId: number; className: string }>();
-    return { ...user, children: children.results };
+    `).all<{ id: number; name: string; classId: number; className: string; userId: number }>(),
+  ]);
+  const rolesByUser = new Map<number, UserRole[]>();
+  const childrenByUser = new Map<number, Array<{ id: number; name: string; classId: number; className: string }>>();
+  for (const row of rolesResult.results) {
+    const roles = rolesByUser.get(row.user_id) ?? [];
+    roles.push({ role: row.role, classId: row.class_id });
+    rolesByUser.set(row.user_id, roles);
+  }
+  for (const { userId, ...child } of childrenResult.results) {
+    const children = childrenByUser.get(userId) ?? [];
+    children.push(child);
+    childrenByUser.set(userId, children);
+  }
+  return usersResult.results.map((row) => ({
+    ...mapUser(row),
+    roles: rolesByUser.get(row.id) ?? [],
+    children: childrenByUser.get(row.id) ?? [],
   }));
 }
 
@@ -256,75 +258,18 @@ export async function deactivateUser(
     return null;
   }
 
-  const roles = await db
-    .prepare(`
-      SELECT
-        role,
-        class_id
-      FROM user_roles
-      WHERE user_id = ?
-    `)
-    .bind(id)
-    .all<{
-      role: string;
-      class_id: number | null;
-    }>();
-
-  const classRoles = roles.results.filter(
-    (role) => role.class_id !== null,
-  );
-
-  for (const role of classRoles) {
-    if (
-      role.role !== "TREASURER" &&
-      role.role !== "PARENT_REPRESENTATIVE"
-    ) {
-      continue;
-    }
-
-    const result = await db
-      .prepare(`
-        SELECT COUNT(*) AS count
-        FROM user_roles
-        WHERE class_id = ?
-          AND role = ?
-          AND user_id != ?
-      `)
-      .bind(
-        role.class_id,
-        role.role,
-        id,
-      )
-      .first<{ count: number }>();
-
-    if ((result?.count ?? 0) === 0) {
-      throw new Error(
-        `Cannot deactivate the last ${role.role} for class ${role.class_id}`,
-      );
-    }
-  }
-
   const now = new Date().toISOString();
-
-  await db
-    .prepare(`
-      DELETE FROM user_roles
-      WHERE user_id = ?
-    `)
-    .bind(id)
-    .run();
-
-  const result = await db
-    .prepare(`
+  const results = await db.batch([
+    db.prepare("DELETE FROM user_roles WHERE user_id = ?").bind(id),
+    db.prepare(`
       UPDATE users
       SET
         active = 0,
         updated_at = ?
       WHERE id = ?
       RETURNING ${USER_COLUMNS}
-    `)
-    .bind(now, id)
-    .first<UserRow>();
-
-  return result ? mapUser(result) : null;
+    `).bind(now, id),
+  ]);
+  if (results[1].meta.changes !== 1) return null;
+  return getUserById(db, id);
 }

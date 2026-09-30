@@ -268,6 +268,8 @@ The `0005_institution_name.sql` migration adds the installation-wide institution
 
 The `0006_notification_delivery_claim.sql` migration adds a short-lived claim to prevent concurrent scheduled digest runs from sending the same pending notifications more than once.
 
+The `0007_protect_last_roles.sql` migration prevents removal or deactivation of the last global administrator, class Treasurer, or Parent Representative, including concurrent requests.
+
 ### Notifications and daily email digest
 
 The notification inbox is available to every authenticated user. Events are created for the relevant class roles and linked children when charges or expenses are created, cancelled, paid, or approach their due date. Users can mark inbox items as read and manage daily digest preferences, including event types, send time, and IANA timezone.

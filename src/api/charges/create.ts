@@ -10,6 +10,7 @@ import { BadRequestError, NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import type { Env } from "../../types/env";
 import { notifyChargeCreated } from "../../services/notifications";
+import { requireActiveClass } from "../../services/class-state";
 
 export async function createChargeHandler(
   request: Request,
@@ -44,9 +45,7 @@ export async function createChargeHandler(
     classId,
   );
 
-  if (!classItem) {
-    throw new NotFoundError("Class not found");
-  }
+  requireActiveClass(classItem);
 
   let body: unknown;
 
@@ -87,7 +86,7 @@ export async function createChargeHandler(
 
   if (
     typeof input.amount !== "number" ||
-    !Number.isInteger(input.amount) ||
+    !Number.isSafeInteger(input.amount) ||
     input.amount <= 0
   ) {
     throw new BadRequestError(

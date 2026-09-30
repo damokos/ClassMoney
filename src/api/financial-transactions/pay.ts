@@ -9,6 +9,8 @@ import {
 import { NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import { payFinancialTransaction } from "../../services/financial-transactions";
+import { getClassById } from "../../db/repositories/classes";
+import { requireActiveClass } from "../../services/class-state";
 
 export async function payFinancialTransactionHandler(
   request: Request,
@@ -44,6 +46,7 @@ export async function payFinancialTransactionHandler(
     authContext.user,
     transaction.classId,
   );
+  requireActiveClass(await getClassById(db, transaction.classId));
 
   const paidTransaction =
     await payFinancialTransaction(

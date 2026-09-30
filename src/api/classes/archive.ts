@@ -18,8 +18,7 @@ export async function archiveClassHandler(
   requireGlobalRole(authContext.user, "ADMIN");
 
   const url = new URL(request.url);
-  const parts = url.pathname.split("/");
-  const id = Number(parts[parts.length - 2]);
+  const id = Number(url.pathname.split("/").pop());
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new NotFoundError("Class not found");

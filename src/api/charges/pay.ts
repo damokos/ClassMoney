@@ -10,6 +10,8 @@ import { NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import { payCharge } from "../../services/charges";
 import { notifyChargePaid } from "../../services/notifications";
+import { getClassById } from "../../db/repositories/classes";
+import { requireActiveClass } from "../../services/class-state";
 
 export async function payChargeHandler(
   request: Request,
@@ -41,6 +43,7 @@ export async function payChargeHandler(
     authContext.user,
     charge.classId,
   );
+  requireActiveClass(await getClassById(db, charge.classId));
 
   const paidCharge = await payCharge(
     db,

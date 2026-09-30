@@ -119,7 +119,7 @@ export async function createClass(input) {
 
 export async function updateClass(id, input) {
   return request(`/api/classes/${id}`, {
-    method: "PUT",
+    method: "PATCH",
     headers: {
       "Content-Type": "application/json",
     },

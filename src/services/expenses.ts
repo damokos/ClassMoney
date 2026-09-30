@@ -52,7 +52,7 @@ export async function payExpense(
         created_at,
         created_by
       )
-      VALUES (
+      SELECT
         ?,
         ?,
         'EXPENSE_PAID',
@@ -61,7 +61,7 @@ export async function payExpense(
         ?,
         ?,
         ?
-      )
+      WHERE changes() = 1
     `)
     .bind(
       expense.classId,
@@ -78,7 +78,7 @@ export async function payExpense(
       SET
         balance = balance - ?,
         updated_at = ?
-      WHERE id = ?
+      WHERE id = ? AND changes() = 1
     `)
     .bind(
       expense.amount,
@@ -147,10 +147,7 @@ export async function cancelExpense(
       expenseId,
     );
 
-  const statements = [expenseUpdate];
-
-  if (expense.status === "PAID") {
-    statements.push(
+  const statements = [expenseUpdate,
       db
         .prepare(`
           INSERT INTO balance_transactions (
@@ -163,43 +160,29 @@ export async function cancelExpense(
             created_at,
             created_by
           )
-          VALUES (
-            ?,
-            ?,
-            'EXPENSE_CANCELLED',
-            'expense',
-            ?,
-            ?,
-            ?,
-            ?
-          )
+          SELECT class_id, amount, 'EXPENSE_CANCELLED', 'expense', id, title, ?, ?
+          FROM expenses WHERE id = ? AND status = 'CANCELLED' AND paid_at IS NOT NULL
+            AND changes() = 1
         `)
         .bind(
-          expense.classId,
-          expense.amount,
-          expense.id,
-          expense.title,
           cancelledAt,
           cancelledBy,
+          expenseId,
         ),
-    );
-
-    statements.push(
       db
         .prepare(`
           UPDATE classes
           SET
-            balance = balance + ?,
+            balance = balance + (SELECT amount FROM expenses WHERE id = ?),
             updated_at = ?
-          WHERE id = ?
+          WHERE id = ? AND changes() = 1
         `)
         .bind(
-          expense.amount,
+          expenseId,
           cancelledAt,
           expense.classId,
         ),
-    );
-  }
+  ];
 
   const results = await db.batch(statements);
 

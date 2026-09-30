@@ -54,7 +54,7 @@ export async function payCharge(
         created_at,
         created_by
       )
-      VALUES (
+      SELECT
         ?,
         ?,
         'CHARGE_PAID',
@@ -63,7 +63,7 @@ export async function payCharge(
         ?,
         ?,
         ?
-      )
+      WHERE changes() = 1
     `)
     .bind(
       charge.classId,
@@ -80,7 +80,7 @@ export async function payCharge(
       SET
         balance = balance + ?,
         updated_at = ?
-      WHERE id = ?
+      WHERE id = ? AND changes() = 1
     `)
     .bind(
       charge.amount,

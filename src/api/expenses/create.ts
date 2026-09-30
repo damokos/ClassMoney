@@ -9,6 +9,8 @@ import {
 import { BadRequestError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import { notifyExpenseCreated } from "../../services/notifications";
+import { getClassById } from "../../db/repositories/classes";
+import { requireActiveClass } from "../../services/class-state";
 
 const MAX_RECEIPT_SIZE = 10 * 1024 * 1024;
 const RECEIPT_TYPES = new Set([
@@ -52,6 +54,9 @@ export async function createExpenseHandler(
   }
 
   const classId = Number(match[1]);
+  requireAnyClassRole(authContext.user, classId, ["PARENT_REPRESENTATIVE", "TREASURER"]);
+  const db = getDb(env);
+  requireActiveClass(await getClassById(db, classId));
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (contentLength > MAX_RECEIPT_SIZE + 64 * 1024) {
     throw new BadRequestError("Receipt file must be 10 MB or smaller");
@@ -110,13 +115,6 @@ export async function createExpenseHandler(
     );
   }
 
-  requireAnyClassRole(
-    authContext.user,
-    classId,
-    ["PARENT_REPRESENTATIVE", "TREASURER"],
-  );
-
-  const db = getDb(env);
   const bytes = new Uint8Array(await receipt.arrayBuffer());
   if (!isValidReceiptSignature(receiptMimeType, bytes)) {
     throw new BadRequestError(

@@ -10,6 +10,8 @@ import { NotFoundError } from "../../http/errors";
 import { successResponse } from "../../http/response";
 import { cancelExpense } from "../../services/expenses";
 import { notifyExpenseCancelled } from "../../services/notifications";
+import { getClassById } from "../../db/repositories/classes";
+import { requireActiveClass } from "../../services/class-state";
 
 export async function cancelExpenseHandler(
   request: Request,
@@ -41,6 +43,7 @@ export async function cancelExpenseHandler(
     expense.classId,
     ["PARENT_REPRESENTATIVE", "TREASURER"],
   );
+  requireActiveClass(await getClassById(db, expense.classId));
 
   const cancelledExpense = await cancelExpense(
     db,

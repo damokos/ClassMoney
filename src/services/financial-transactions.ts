@@ -55,7 +55,7 @@ export async function payFinancialTransaction(
         created_at,
         created_by
       )
-      VALUES (
+      SELECT
         ?,
         ?,
         'FINANCIAL_TRANSACTION_PAID',
@@ -64,7 +64,7 @@ export async function payFinancialTransaction(
         ?,
         ?,
         ?
-      )
+      WHERE changes() = 1
     `)
     .bind(
       transaction.classId,
@@ -81,7 +81,7 @@ export async function payFinancialTransaction(
       SET
         balance = balance + ?,
         updated_at = ?
-      WHERE id = ?
+      WHERE id = ? AND changes() = 1
     `)
     .bind(
       transaction.amount,
@@ -156,10 +156,7 @@ export async function cancelFinancialTransaction(
       transactionId,
     );
 
-  const statements = [transactionUpdate];
-
-  if (transaction.status === "PAID") {
-    statements.push(
+  const statements = [transactionUpdate,
       db
         .prepare(`
           INSERT INTO balance_transactions (
@@ -172,43 +169,29 @@ export async function cancelFinancialTransaction(
             created_at,
             created_by
           )
-          VALUES (
-            ?,
-            ?,
-            'FINANCIAL_TRANSACTION_CANCELLED',
-            'financial_transaction',
-            ?,
-            ?,
-            ?,
-            ?
-          )
+          SELECT class_id, -amount, 'FINANCIAL_TRANSACTION_CANCELLED', 'financial_transaction', id, description, ?, ?
+          FROM financial_transactions WHERE id = ? AND status = 'CANCELLED' AND paid_at IS NOT NULL
+            AND changes() = 1
         `)
         .bind(
-          transaction.classId,
-          -transaction.amount,
-          transaction.id,
-          transaction.description,
           cancelledAt,
           cancelledBy,
+          transactionId,
         ),
-    );
-
-    statements.push(
       db
         .prepare(`
           UPDATE classes
           SET
-            balance = balance - ?,
+            balance = balance - (SELECT amount FROM financial_transactions WHERE id = ?),
             updated_at = ?
-          WHERE id = ?
+          WHERE id = ? AND changes() = 1
         `)
         .bind(
-          transaction.amount,
+          transactionId,
           cancelledAt,
           transaction.classId,
         ),
-    );
-  }
+  ];
 
   const results = await db.batch(statements);
 
