@@ -2,6 +2,7 @@ export interface DigestEvent {
   id: number;
   code: string;
   entityType: string;
+  entityId: number | null;
   classId: number | null;
   payload: Record<string, unknown>;
 }
@@ -85,6 +86,11 @@ function renderParentContent(events: DigestEvent[]): string {
   return [...groups.entries()].map(([name, rows]) => `<section class="child-section"><h2>${escapeHtml(name)}</h2><table><thead><tr><th>Esemény</th><th>Osztály</th><th>Tétel</th><th>Összeg</th><th>Dátum / határidő</th></tr></thead><tbody>${rows.map((event) => eventRow(event, false)).join("")}</tbody></table></section>`).join("");
 }
 
+function renderRoleTable(events: DigestEvent[], heading: string, role: string): string {
+  if (!events.length) return "";
+  return `<section class="child-section"><h2>${escapeHtml(heading)}</h2><table><thead><tr><th>${role === "admin" ? "Felhasználó / tanuló" : "Tanuló"}</th><th>Esemény</th><th>Osztály</th><th>Tétel</th><th>Összeg</th><th>Dátum / határidő</th></tr></thead><tbody>${events.map((event) => eventRow(event, true)).join("")}</tbody></table></section>`;
+}
+
 export async function loadDigestTemplates(assets: Fetcher): Promise<DigestTemplates> {
   const [htmlResponse, textResponse] = await Promise.all([
     assets.fetch(new Request("https://assets.local/email/digest.html")),
@@ -99,9 +105,24 @@ export function renderDigest(input: {
   role: "parent" | "szmk" | "treasurer" | "combined" | "admin";
   recipientName: string | null;
   events: DigestEvent[];
+  ownChildIds: number[];
   appUrl?: string;
 }): { subject: string; html: string; text: string } {
-  const { templates, role, recipientName, events, appUrl } = input;
+  const { templates, role, recipientName, appUrl } = input;
+  const uniqueEvents = new Map<string, DigestEvent>();
+  for (const event of input.events) {
+    const isOverlappingChargeNotice = event.entityId !== null && (
+      event.code === "CHARGE_ASSIGNED_OR_CANCELLED_FOR_MY_CHILD"
+      || event.code === "CHARGE_ASSIGNED_OR_CANCELLED"
+    );
+    const key = isOverlappingChargeNotice
+      ? `charge:${event.classId}:${event.entityType}:${event.entityId}`
+      : `event:${event.id}`;
+    const previous = uniqueEvents.get(key);
+    if (!previous || event.code === "CHARGE_ASSIGNED_OR_CANCELLED") uniqueEvents.set(key, event);
+  }
+  const events = [...uniqueEvents.values()];
+  const ownChildIds = new Set(input.ownChildIds);
   const title = role === "parent"
     ? `Napi értesítés – ${recipientName || "gyermekeid"} pénzügyeiről`
     : role === "szmk" ? "Napi SZMK összefoglaló"
@@ -115,16 +136,27 @@ export function renderDigest(input: {
       : role === "admin"
         ? "Az elmúlt nap új felhasználói és pénzügyi eseményei."
       : "Az elmúlt nap pénzügyi értesítései.";
+  const ownChildEvents = role === "parent" ? [] : events.filter((event) => {
+    const childId = event.payload.childId;
+    return typeof childId === "number" && ownChildIds.has(childId);
+  });
+  const roleEvents = role === "parent" ? events : events.filter((event) => !ownChildEvents.includes(event));
   const content = role === "parent"
     ? renderParentContent(events)
-    : `<table><thead><tr><th>${role === "admin" ? "Felhasználó / tanuló" : "Tanuló"}</th><th>Esemény</th><th>Osztály</th><th>Tétel</th><th>Összeg</th><th>Dátum / határidő</th></tr></thead><tbody>${events.map((event) => eventRow(event, true)).join("")}</tbody></table>`;
-  const lines = events.map((event) => {
+    : `${renderRoleTable(ownChildEvents, "Saját gyermekeidet érintő események", role)}${renderRoleTable(roleEvents, "További osztályszintű események", role)}`;
+  const renderTextLines = (rows: DigestEvent[]) => rows.map((event) => {
     const payload = event.payload;
     const child = role === "parent" ? "" : `${typeof payload.childName === "string" ? payload.childName : typeof payload.email === "string" ? payload.email : "—"} | `;
     const className = typeof payload.className === "string" ? payload.className : "—";
     const detail = event.code === "USER_CREATED" ? "Első belépés" : typeof payload.title === "string" ? payload.title : typeof payload.description === "string" ? payload.description : "—";
     return `${child}${eventLabel(event)} | ${className} | ${detail} | ${formatMoney(event)} | ${formatDate(eventDate(event))}`;
   }).join("\n");
+  const lines = role === "parent"
+    ? renderTextLines(events)
+    : [
+        ownChildEvents.length ? `Saját gyermekeidet érintő események:\n${renderTextLines(ownChildEvents)}` : "",
+        roleEvents.length ? `További osztályszintű események:\n${renderTextLines(roleEvents)}` : "",
+      ].filter(Boolean).join("\n\n");
   let html = templates.html
     .replaceAll("{{TITLE}}", escapeHtml(title))
     .replaceAll("{{INTRO}}", escapeHtml(intro))

@@ -45,7 +45,8 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
   catch (error) { console.error("Invalid digest timezone", user.id, error); return; }
   if (clock !== user.digest_time) return;
   const events = await env.DB.prepare(`
-    SELECT e.id, t.code, e.class_id AS classId, e.entity_type AS entityType, e.payload
+    SELECT e.id, t.code, e.class_id AS classId, e.entity_type AS entityType,
+      e.entity_id AS entityId, e.payload
     FROM notification_events e
     INNER JOIN notification_types t ON t.id = e.notification_type_id
     LEFT JOIN notification_preferences p
@@ -56,7 +57,7 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
     ORDER BY e.created_at, e.id
     LIMIT 100
   `).bind(user.id, new Date(currentTime.getTime() - 30 * 60 * 1000).toISOString())
-    .all<{ id: number; code: string; classId: number | null; entityType: string | null; payload: string | null }>();
+    .all<{ id: number; code: string; classId: number | null; entityType: string | null; entityId: number | null; payload: string | null }>();
   if (!events.results.length) return;
   const claimedEvents: typeof events.results = [];
   const claimedAt = currentTime.toISOString();
@@ -79,6 +80,7 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
     code: event.code,
     classId: event.classId,
     entityType: event.entityType ?? "",
+    entityId: event.entityId,
     payload: event.payload ? JSON.parse(event.payload) as Record<string, unknown> : {},
   }));
   const hasNewUsers = claimedDigestEvents.some((event) => event.code === "USER_CREATED");
@@ -95,8 +97,17 @@ async function sendUserDigest(env: Env, user: { id: number; email: string; diges
     .filter((name): name is string => typeof name === "string"))];
   const rawRecipientName = childNames.length === 1 ? childNames[0] : childNames.length > 1 ? "gyermekeid" : null;
   const recipientName = rawRecipientName?.replace(/[\r\n]+/g, " ").slice(0, 80) ?? null;
+  const ownChildren = await env.DB.prepare("SELECT child_id FROM user_children WHERE user_id = ?")
+    .bind(user.id).all<{ child_id: number }>();
   const templates = await loadDigestTemplates(env.ASSETS);
-  const digest = renderDigest({ templates, role, recipientName, events: claimedDigestEvents, appUrl: env.APP_URL });
+  const digest = renderDigest({
+    templates,
+    role,
+    recipientName,
+    events: claimedDigestEvents,
+    ownChildIds: ownChildren.results.map((child) => child.child_id),
+    appUrl: env.APP_URL,
+  });
   const now = new Date().toISOString();
   try {
     const controller = new AbortController();

@@ -83,8 +83,31 @@ export async function createNotificationEvents(
     LEFT JOIN notification_type_roles tr ON tr.notification_type_id = t.id AND tr.role = ur.role
     LEFT JOIN user_children uc ON uc.user_id = u.id AND uc.child_id = ?
     WHERE t.code = ? AND t.active = 1
-      AND (tr.role IS NOT NULL OR (t.code IN ('CHARGE_ASSIGNED_OR_CANCELLED_FOR_MY_CHILD', 'CHARGE_DUE_SOON') AND uc.user_id IS NOT NULL))
-  `).bind(classId, childId ?? -1, code).all<{ user_id: number; type_id: number }>();
+      AND (
+        (
+          t.code = 'CHARGE_ASSIGNED_OR_CANCELLED_FOR_MY_CHILD'
+          AND uc.user_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM notification_types role_type
+            INNER JOIN notification_type_roles role_map ON role_map.notification_type_id = role_type.id
+            INNER JOIN user_roles recipient_role
+              ON recipient_role.user_id = u.id
+             AND recipient_role.class_id = ?
+             AND recipient_role.role = role_map.role
+            LEFT JOIN notification_preferences role_preference
+              ON role_preference.user_id = u.id AND role_preference.notification_type_id = role_type.id
+            WHERE role_type.code = 'CHARGE_ASSIGNED_OR_CANCELLED'
+              AND role_type.active = 1
+              AND COALESCE(role_preference.enabled, 1) = 1
+          )
+        )
+        OR (
+          t.code <> 'CHARGE_ASSIGNED_OR_CANCELLED_FOR_MY_CHILD'
+          AND (tr.role IS NOT NULL OR (t.code = 'CHARGE_DUE_SOON' AND uc.user_id IS NOT NULL))
+        )
+      )
+  `).bind(classId, childId ?? -1, code, classId).all<{ user_id: number; type_id: number }>();
   if (!recipients.results.length) return;
   const encodedPayload = JSON.stringify(payload);
   const createdAt = new Date().toISOString();
